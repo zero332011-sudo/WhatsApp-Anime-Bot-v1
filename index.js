@@ -5,6 +5,9 @@ import { messageHandler } from './handlers/messageHandler.js';
 import { config } from './config/settings.js';
 import { startPrayerSystem } from './system/prayer.js';
 
+const WAIT_BEFORE_PAIRING_MS = 30_000;
+const RECONNECT_DELAY_MS = 30_000;
+
 let starting = false;
 let prayerStarted = false;
 
@@ -13,7 +16,7 @@ async function startBot() {
   starting = true;
 
   try {
-    const phoneNumber = String(config.pairingNumber || '').replace(/\\D/g, '');
+    const phoneNumber = String(config.pairingNumber || '').replace(/\D/g, '');
     if (!phoneNumber || phoneNumber.length < 10) {
       throw new Error('رقم الربط غير صحيح. تأكد من PAIRING_NUMBER مع كود الدولة، أرقام فقط.');
     }
@@ -25,28 +28,33 @@ async function startBot() {
       logger: pino({ level: 'warn' }),
       markOnlineOnConnect: false,
       syncFullHistory: false,
-      connectTimeoutMs: 60000,
-      defaultQueryTimeoutMs: 60000
+      connectTimeoutMs: 60_000,
+      defaultQueryTimeoutMs: 60_000
     });
 
     let pairingCodeRequested = false;
+    let socketClosed = false;
 
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('messages.upsert', update => {
       messageHandler(sock, update).catch(error => {
-        console.error('خطأ في معالجة الرسالة:', error);
+        console.error('خطأ في معالجة الرسالة:', error?.stack || error);
       });
     });
 
     sock.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
-      // Baileys must emit its QR/connection event before a pairing code is requested.
-      // In pairing-code mode, this QR event is only a signal; it is not shown to the user.
       if (qr && !state.creds.registered && !pairingCodeRequested) {
         pairingCodeRequested = true;
         try {
-          console.log('📲 واتساب أصبح جاهزًا لطلب رمز الربط...');
+          console.log('📲 واتساب بدأ الاتصال. انتظار 30 ثانية قبل طلب رمز الربط...');
           console.log('📞 رقم واتساب: +' + phoneNumber);
+          await new Promise(resolve => setTimeout(resolve, WAIT_BEFORE_PAIRING_MS));
+
+          if (socketClosed) {
+            console.error('❌ الاتصال اتقفل أثناء انتظار الـ30 ثانية؛ لن نطلب الرمز من اتصال مغلق.');
+            return;
+          }
 
           const pairingCode = await sock.requestPairingCode(phoneNumber);
 
@@ -58,7 +66,11 @@ async function startBot() {
           console.log('⚠️ الرمز مؤقت وسري، ولا تشاركه مع أي شخص.');
           console.log('========================================\n');
         } catch (error) {
-          console.error('❌ فشل طلب رمز الربط من واتساب:', error?.message || error);
+          console.error('❌ فشل طلب رمز الربط من واتساب:', {
+            message: error?.message,
+            statusCode: error?.output?.statusCode,
+            stack: error?.stack
+          });
         }
       }
 
@@ -72,18 +84,25 @@ async function startBot() {
       }
 
       if (connection === 'close') {
+        socketClosed = true;
         starting = false;
         prayerStarted = false;
         const statusCode = lastDisconnect?.error?.output?.statusCode;
+        const closeMessage = lastDisconnect?.error?.message;
+
+        console.error('⚠️ اتصال واتساب اتقفل:', {
+          statusCode,
+          message: closeMessage || 'لا توجد تفاصيل إضافية'
+        });
 
         if (statusCode !== DisconnectReason.loggedOut) {
-          console.log('⚠️ انقطع الاتصال، ستتم إعادة المحاولة بعد 5 ثوانٍ');
+          console.log('🔁 ستتم محاولة الاتصال من جديد بعد 30 ثانية...');
           setTimeout(() => {
             startBot().catch(error => {
               starting = false;
-              console.error('فشل إعادة الاتصال:', error);
+              console.error('فشل إعادة الاتصال:', error?.stack || error);
             });
-          }, 5000);
+          }, RECONNECT_DELAY_MS);
         } else {
           console.log('❌ تم تسجيل الخروج من واتساب؛ احذف جلسة الربط القديمة من ملفات الاستضافة ثم اربط الجهاز من جديد.');
         }
