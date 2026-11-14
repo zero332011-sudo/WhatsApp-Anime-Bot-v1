@@ -1,0 +1,2 @@
+import {getDB} from '../database/db.js';
+export async function showMedia(sock,m){const jid=m.key.remoteJid;const db=getDB();const ctx=m.message?.extendedTextMessage?.contextInfo;if(!ctx?.quotedMessage){await sock.sendMessage(jid,{text:'📎 استخدم الأمر ردًا على رسالة تحتوي على صورة أو فيديو أو ملف.'});return true;}await sock.sendMessage(jid,{text:'ℹ️ لإعادة إرسال الوسائط يجب أن تكون الرسالة الأصلية متاحة للبوت؛ هذه النسخة تعرض معلومات الرد فقط.'});return true;}
