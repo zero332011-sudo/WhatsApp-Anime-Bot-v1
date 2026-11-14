@@ -3,6 +3,7 @@ const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
 const whoOf = m => m.key.participant || m.key.remoteJid;
 const render = b => `❌ ${b[0]} | ${b[1]} | ${b[2]}\n---+---+---\n❌ ${b[3]} | ${b[4]} | ${b[5]}\n---+---+---\n❌ ${b[6]} | ${b[7]} | ${b[8]}`;
 const mention = jid => '@' + jid.split('@')[0];
+import {getTargetJid} from '../utils/helpers.js';
 
 export async function startXO(sock, m, opponent) {
   const jid=m.key.remoteJid, owner=whoOf(m);
@@ -27,6 +28,14 @@ export async function addXOInvite(sock,m,target) {
 export async function xoMessage(sock,m,text) {
   const jid=m.key.remoteJid,g=games.get(jid),who=whoOf(m);
   if(!g||!text||text.startsWith('.')) return false;
+  if(who===g.owner) {
+    const target=getTargetJid(m);
+    if(target && target!==g.owner && g.players.size<2) {
+      g.invited=target;
+      await sock.sendMessage(jid,{text:'📩 تمت دعوة '+mention(target)+' للعبة XO. يكتب «تم» للانضمام.',mentions:[target]});
+      return true;
+    }
+  }
   if(text.trim()==='تم') {
     if(who===g.invited && g.players.size<2) {
       g.players.add(who);
