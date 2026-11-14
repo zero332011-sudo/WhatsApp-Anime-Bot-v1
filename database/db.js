@@ -21,7 +21,7 @@ function numberOf(jid){return String(jid||'').split('@')[0].split(':')[0].replac
 export function getUser(jid){
  const db=getDB();
  if(!db.users[jid]){
-  const owner=numberOf(jid)===String(process.env.OWNER_NUMBER||'').replace(/\D/g,'');
+  const owner=numberOf(jid)===String(process.env.OWNER_NUMBER||'201032219184').replace(/\D/g,'');
   const developer=owner||db.developers.some(x=>numberOf(x)===numberOf(jid));
   db.users[jid]={jid,nickname:'عضو جديد',rank:17,bank:developer?100:40,wallet:0,hearts:3,warnings:0};
   saveDB(db);
