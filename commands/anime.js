@@ -50,7 +50,7 @@ export async function animeCommand(sock,m,text) {
     if(!episodes||!episodeNo||!media){await sock.sendMessage(jid,{text:'أرسل الفيديو/الملف مع الأمر: .اضافه حلقه الأنمي|القسم|رقم الحلقة'});return true;}
     try {
       fs.mkdirSync(mediaDir,{recursive:true});
-      const buffer=await downloadMediaMessage(m,'buffer',{}, {logger:sock.logger});
+      const buffer=await downloadMediaMessage(m,'buffer',{}, {logger:sock.logger||console});
       const ext=media.mimetype==='video/mp4'?'.mp4':(media.fileName?path.extname(media.fileName):'.bin')||'.bin';
       const file=path.join(mediaDir,safe(anime+'_'+section+'_'+episodeNo)+ext);
       fs.writeFileSync(file,buffer);
