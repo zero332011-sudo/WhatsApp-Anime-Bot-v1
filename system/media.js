@@ -5,7 +5,7 @@ export async function showMedia(sock,m){
  if(!ctx?.quotedMessage){await sock.sendMessage(jid,{text:'📎 رد على صورة أو فيديو أو ملف بالأمر .عرض.'});return true;}
  const quoted={key:{remoteJid:jid,id:ctx.stanzaId,participant:ctx.participant||m.key.participant,fromMe:false},message:ctx.quotedMessage};
  try {
-  const buffer=await downloadMediaMessage(quoted,'buffer',{}, {logger:sock.logger,reuploadRequest:sock.updateMediaMessage});
+  const buffer=await downloadMediaMessage(quoted,'buffer',{}, {logger:sock.logger||console,reuploadRequest:sock.updateMediaMessage});
   const q=ctx.quotedMessage;
   if(q.imageMessage) await sock.sendMessage(jid,{image:buffer,caption:q.imageMessage.caption||''});
   else if(q.videoMessage) await sock.sendMessage(jid,{video:buffer,caption:q.videoMessage.caption||''});
