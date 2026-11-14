@@ -100,7 +100,7 @@ export async function stopGuess(sock, m) {
 }
 export async function addGuessParticipant(sock, m, target) {
   const jid = m.key.remoteJid, game = games.get(jid), sender = m.key.participant || jid;
-  if (!game) { await sock.sendMessage(jid, { text: 'مفيش لعبة خمن شغالة دلوقتي.' }); return true; }
+  if (!game) return false;
   if (sender !== game.owner) { await sock.sendMessage(jid, { text: 'صاحب اللعبة فقط يقدر يضيف مشاركين.' }); return true; }
   if (!target) { await sock.sendMessage(jid, { text: 'اعمل منشن للعضو أو رد على رسالته بالأمر .مشارك' }); return true; }
   game.participants.add(target); game.hearts[target] ??= 3;
