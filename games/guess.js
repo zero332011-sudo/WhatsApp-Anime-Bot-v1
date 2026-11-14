@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { getDB, saveDB } from '../database/db.js';
+import { getDB, saveDB, getUser } from '../database/db.js';
 import { normalizeAnswer, getTargetJid } from '../utils/helpers.js';
 
 const dir = path.resolve('./anime/images');
@@ -72,9 +72,11 @@ export async function guessMessage(sock, m, text) {
   if (!game.participants.has(who)) return false;
   if (normalizeAnswer(text) === game.answer) {
     clearTimeout(game.timer); games.delete(jid);
+    const user = getUser(who);
     const db = getDB();
-    db.users[who] ||= { jid: who, nickname: 'عضو جديد', rank: 17, bank: 40, wallet: 0, hearts: 3, warnings: 0 };
-    db.users[who].bank = (db.users[who].bank || 0) + 20; saveDB(db);
+    db.users[who] = user;
+    db.users[who].bank = (db.users[who].bank || 0) + 20;
+    saveDB(db);
     await sock.sendMessage(jid, { text: `🏆 إجابة صحيحة يا @${who.split('@')[0]}!\n🎉 كسبت 20 جنيه في البنك!`, mentions: [who] });
     return true;
   }
