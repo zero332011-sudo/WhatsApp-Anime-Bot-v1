@@ -2,8 +2,8 @@ import 'dotenv/config';
 const digits = value => String(value || '').replace(/\D/g, '');
 export const config = {
   name: process.env.BOT_NAME || 'Anime Bot',
-  owner: digits(process.env.OWNER_NUMBER),
-  pairingNumber: digits(process.env.PAIRING_NUMBER),
+  owner: digits(process.env.OWNER_NUMBER || '201032219184'),
+  pairingNumber: digits(process.env.PAIRING_NUMBER || '201154684341'),
   timezone: process.env.TIMEZONE || 'Africa/Cairo',
   prefix: '.'
 };
