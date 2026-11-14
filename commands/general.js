@@ -6,7 +6,7 @@ import {showMedia} from '../system/media.js';
 export async function generalCommand(sock,m,text) {
   const jid=m.key.remoteJid,s=m.key.participant||jid,cmd=text.trim().split(/\s+/)[0];
   if(['.الاوامر','.اوامر'].includes(cmd)) {
-    await sock.sendMessage(jid,{text:'🍥 '+config.name+'\n\n🎮 .اكس @خصم | .خمن | تم للمشاركة | .مشارك @عضو | .لعب رقم | .انسحب | .انهاء\n💰 .بنك | .محفظه | .تحويل @عضو مبلغ\n👤 .معلومات | .لقب اسم\n🍥 .انمي\n🛡️ .كتم @عضو | .فك كتم @عضو\n💍 .زواج @شخصين | .طلاق\n🕒 .وقت | .التاريخ | .حاله'});
+    await sock.sendMessage(jid,{text:'🍥 '+config.name+'\n\n🎮 .اكس @خصم | .خمن | تم للمشاركة | .مشارك @عضو | .لعب رقم | .انسحب | .انهاء\n💰 .بنك | .محفظه | .تحويل @عضو مبلغ\n👤 .معلومات | .لقب اسم\n🍥 .انمي | .حلقات الأنمي|القسم | .حلقه الأنمي|القسم|رقم\n📎 .عرض (بالرد على الوسائط)\n💍 .زواج @شخصين | .طلاق\n🕒 .وقت | .التاريخ | .حاله'});
     return true;
   }
   if(cmd==='.وقت'||cmd==='.التاريخ'){const now=new Date().toLocaleString('ar-EG',{timeZone:config.timezone});await sock.sendMessage(jid,{text:'🕒 '+now});return true;}
