@@ -2,7 +2,8 @@ import {getDB,saveDB} from '../database/db.js';
 import {isOwner} from '../utils/permissions.js';
 export async function ownerTools(sock,m,text) {
  const jid=m.key.remoteJid,sender=m.key.participant||jid;
- const cmd=['.اضافه ايموجي','.اضافه ملصق','.حذف ايموجي','.حذف ملصق'].find(x=>text.startsWith(x));
+ const commands=['.اضافه ايموجي','.اضافه ملصق','.حذف ايموجي','.حذف ملصق','.اضافه كلمه','.حذف كلمه'];
+ const cmd=commands.find(x=>text.startsWith(x));
  if(!cmd)return false;
  if(!isOwner(sender)){await sock.sendMessage(jid,{text:'⛔ الأمر للمطور الأساسي فقط.'});return true;}
  const db=getDB(),ctx=m.message?.extendedTextMessage?.contextInfo,val=text.slice(cmd.length).trim();
@@ -12,6 +13,12 @@ export async function ownerTools(sock,m,text) {
   const hash=Buffer.from(sticker.fileSha256).toString('base64');db.blockedStickers ||= [];
   if(cmd.startsWith('.اضافه')){if(!db.blockedStickers.includes(hash))db.blockedStickers.push(hash);}
   else db.blockedStickers=db.blockedStickers.filter(x=>x!==hash);
+ }else if(cmd.includes('كلمه')){
+  if(!val){await sock.sendMessage(jid,{text:'اكتب الكلمة بعد الأمر.'});return true;}
+  db.blockedWords ||= [];
+  const word=val.toLowerCase();
+  if(cmd.startsWith('.اضافه')){if(!db.blockedWords.includes(word))db.blockedWords.push(word);}
+  else db.blockedWords=db.blockedWords.filter(x=>x!==word);
  }else{
   if(!val){await sock.sendMessage(jid,{text:'اكتب الإيموجي بعد الأمر.'});return true;}
   db.blockedEmojis ||= [];
