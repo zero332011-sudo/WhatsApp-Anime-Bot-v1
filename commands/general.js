@@ -2,6 +2,7 @@ import {getDB,getUser,saveDB} from '../database/db.js';
 import {getTargetJid} from '../utils/helpers.js';
 import {ranks,config} from '../config/settings.js';
 import {isDeveloper} from '../utils/permissions.js';
+import {showMedia} from '../system/media.js';
 export async function generalCommand(sock,m,text) {
   const jid=m.key.remoteJid,s=m.key.participant||jid,cmd=text.trim().split(/\s+/)[0];
   if(['.الاوامر','.اوامر'].includes(cmd)) {
@@ -10,6 +11,7 @@ export async function generalCommand(sock,m,text) {
   }
   if(cmd==='.وقت'||cmd==='.التاريخ'){const now=new Date().toLocaleString('ar-EG',{timeZone:config.timezone});await sock.sendMessage(jid,{text:'🕒 '+now});return true;}
   if(cmd==='.حاله'){await sock.sendMessage(jid,{text:'🟢 البوت يعمل\n⏱️ مدة التشغيل: '+Math.floor(process.uptime())+' ثانية'});return true;}
+  if(cmd==='.عرض') return showMedia(sock,m);
   if(cmd==='.معلومات'){
     const target=getTargetJid(m)||s,x=getUser(target);
     const caption='👤 '+x.nickname+'\n📱 '+target.split('@')[0]+'\n🆔 '+target+'\n👑 '+(ranks[x.rank]||'غير محددة')+'\n🏦 '+x.bank+' جنيه\n👛 '+x.wallet+' جنيه';
