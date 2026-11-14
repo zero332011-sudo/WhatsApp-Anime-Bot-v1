@@ -5,7 +5,7 @@ import { messageHandler } from './handlers/messageHandler.js';
 import { config } from './config/settings.js';
 import { startPrayerSystem } from './system/prayer.js';
 
-const WAIT_BEFORE_PAIRING_MS = 30_000;
+const PAIRING_DELAY_MS = 5_000;
 const RECONNECT_DELAY_MS = 30_000;
 
 let starting = false;
@@ -29,7 +29,8 @@ async function startBot() {
       markOnlineOnConnect: false,
       syncFullHistory: false,
       connectTimeoutMs: 60_000,
-      defaultQueryTimeoutMs: 60_000
+      defaultQueryTimeoutMs: 60_000,
+      keepAliveIntervalMs: 30_000
     });
 
     let pairingCodeRequested = false;
@@ -44,15 +45,19 @@ async function startBot() {
     });
 
     sock.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
-      if (qr && !state.creds.registered && !pairingCodeRequested) {
+      console.log('حالة اتصال واتساب:', connection || (qr ? 'QR/جاهز لطلب الرمز' : 'تحديث'));
+
+      // The socket must first reach the connecting/QR stage. A long 30-second
+      // pause here can let WhatsApp close the socket before the request is sent.
+      if ((connection === 'connecting' || qr) && !state.creds.registered && !pairingCodeRequested) {
         pairingCodeRequested = true;
         try {
-          console.log('📲 واتساب بدأ الاتصال. انتظار 30 ثانية قبل طلب رمز الربط...');
+          console.log('📲 الاتصال بدأ. انتظار 5 ثوانٍ ثم طلب رمز الربط...');
           console.log('📞 رقم واتساب: +' + phoneNumber);
-          await new Promise(resolve => setTimeout(resolve, WAIT_BEFORE_PAIRING_MS));
+          await new Promise(resolve => setTimeout(resolve, PAIRING_DELAY_MS));
 
           if (socketClosed) {
-            console.error('❌ الاتصال اتقفل أثناء انتظار الـ30 ثانية؛ لن نطلب الرمز من اتصال مغلق.');
+            console.error('❌ اتصال واتساب اتقفل قبل طلب الرمز. ستتم إعادة المحاولة.');
             return;
           }
 
@@ -66,11 +71,13 @@ async function startBot() {
           console.log('⚠️ الرمز مؤقت وسري، ولا تشاركه مع أي شخص.');
           console.log('========================================\n');
         } catch (error) {
-          console.error('❌ فشل طلب رمز الربط من واتساب:', {
+          console.error('❌ فشل طلب رمز الربط:', {
             message: error?.message,
             statusCode: error?.output?.statusCode,
             stack: error?.stack
           });
+          // Do not crash the process here. The close event below decides
+          // whether to reconnect or whether WhatsApp explicitly logged out.
         }
       }
 
@@ -104,7 +111,7 @@ async function startBot() {
             });
           }, RECONNECT_DELAY_MS);
         } else {
-          console.log('❌ تم تسجيل الخروج من واتساب؛ احذف جلسة الربط القديمة من ملفات الاستضافة ثم اربط الجهاز من جديد.');
+          console.error('❌ واتساب أعاد حالة تسجيل الخروج (401). لا تحذف ملفات الجلسة قبل التأكد من الرقم؛ راجع الرقم أو امسح جلسة الربط القديمة فقط إذا كنت متأكدًا أنها تالفة.');
         }
       }
     });
