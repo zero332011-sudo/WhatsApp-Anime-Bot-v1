@@ -2,4 +2,5 @@ node_modules/
 .env
 auth_info_baileys/
 database/data.json
+anime/media/
 *.log
