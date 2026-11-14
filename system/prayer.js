@@ -1,4 +1,5 @@
 import {getDB} from '../database/db.js';
+import {config} from '../config/settings.js';
 import {lockGroupForPrayer} from './groupLock.js';
 const sent=new Set();let interval=null;
 export async function checkPrayer(sock) {
@@ -6,7 +7,7 @@ export async function checkPrayer(sock) {
   const response=await fetch('https://api.aladhan.com/v1/timingsByCity?city=Sohag&country=Egypt&method=5');
   if(!response.ok)return;
   const data=await response.json(),timings=data.data.timings,date=data.data.date.gregorian.date;
-  const now=new Intl.DateTimeFormat('en-GB',{timeZone:'Africa/Cairo',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date());
+  const now=new Intl.DateTimeFormat('en-GB',{timeZone:config.timezone,hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date());
   const names={Fajr:'الفجر',Dhuhr:'الظهر',Asr:'العصر',Maghrib:'المغرب',Isha:'العشاء'};
   const prayer=Object.entries(names).find(([key])=>String(timings[key]).slice(0,5)===now);
   if(!prayer||sent.has(date+prayer[0]))return;
@@ -15,7 +16,7 @@ export async function checkPrayer(sock) {
    if(!settings.prayerEnabled)continue;
    try{
     const meta=await sock.groupMetadata(jid),mentions=meta.participants.map(x=>x.id);
-    await sock.sendMessage(jid,{text:`🕌 حان الآن موعد صلاة ${prayer[1]} بتوقيت سوهاج. تقبل الله منكم.\n`+mentions.map(x=>'@'+x.split('@')[0]).join(' '),mentions});
+    await sock.sendMessage(jid,{text:'🕌 حان الآن موعد صلاة '+prayer[1]+' بتوقيت سوهاج. تقبل الله منكم.\n'+mentions.map(x=>'@'+x.split('@')[0]).join(' '),mentions});
     await lockGroupForPrayer(sock,jid);
    }catch(error){console.error('Prayer group:',error);}
   }
