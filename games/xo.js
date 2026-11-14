@@ -11,33 +11,33 @@ export async function startXO(sock, m, opponent) {
   if (!opponent || opponent===owner) { await sock.sendMessage(jid,{text:'ابدأ اللعبة بمنشن خصمك أو بالرد على رسالته: .اكس @الخصم'}); return true; }
   const game={owner,players:new Set([owner]),invited:opponent,turn:null,board:['1','2','3','4','5','6','7','8','9']};
   games.set(jid,game);
-  await sock.sendMessage(jid,{text:`🎮 دعوة لعبة XO\n❌ ${mention(owner)} تحدّى ⭕ ${mention(opponent)}\nعلى الخصم كتابة «تم» للانضمام. أو يمكن لصاحب اللعبة إضافة مشارك بالمنشن/الرد.\nبعد الانضمام استخدموا .لعب 1 إلى 9`,mentions:[owner,opponent]});
+  await sock.sendMessage(jid,{text:`🎮 دعوة لعبة XO\n❌ ${mention(owner)} تحدّى ⭕ ${mention(opponent)}\nعلى الخصم كتابة «تم» للانضمام.\nبعد الانضمام استخدموا .لعب 1 إلى 9`,mentions:[owner,opponent]});
   return true;
 }
-
+export async function addXOInvite(sock,m,target) {
+  const jid=m.key.remoteJid,g=games.get(jid),sender=whoOf(m);
+  if(!g)return false;
+  if(sender!==g.owner){await sock.sendMessage(jid,{text:'صاحب لعبة XO فقط يقدر يضيف الخصم.'});return true;}
+  if(!target||target===g.owner){await sock.sendMessage(jid,{text:'اعمل منشن للخصم أو رد على رسالته بالأمر .مشارك.'});return true;}
+  if(g.players.size>=2){await sock.sendMessage(jid,{text:'اللعبة بدأت بالفعل وبها لاعبان.'});return true;}
+  g.invited=target;
+  await sock.sendMessage(jid,{text:'📩 تمت دعوة '+mention(target)+' للعبة XO. يكتب «تم» للانضمام.',mentions:[target]});
+  return true;
+}
 export async function xoMessage(sock,m,text) {
   const jid=m.key.remoteJid,g=games.get(jid),who=whoOf(m);
   if(!g||!text||text.startsWith('.')) return false;
   if(text.trim()==='تم') {
-    if(who===g.invited || who===g.owner) {
+    if(who===g.invited && g.players.size<2) {
       g.players.add(who);
-      if(g.players.size>=2 && !g.turn) g.turn=g.owner;
-      await sock.sendMessage(jid,{text:`✅ ${mention(who)} انضم للعبة XO.${g.turn?' الدور الأول على '+mention(g.turn):''}`,mentions:[who,...(g.turn?[g.turn]:[])]});
+      if(!g.turn)g.turn=g.owner;
+      await sock.sendMessage(jid,{text:'✅ '+mention(who)+' انضم للعبة XO. الدور الأول على '+mention(g.turn),mentions:[who,g.turn]});
       return true;
     }
     return false;
   }
-  if(who===g.owner && g.players.size<2) {
-    const target=m.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0] || m.message?.extendedTextMessage?.contextInfo?.participant;
-    if(target && target!==g.owner) {
-      g.invited=target;
-      await sock.sendMessage(jid,{text:`📩 تمت دعوة ${mention(target)}. يكتب «تم» للانضمام.`,mentions:[target]});
-      return true;
-    }
-  }
   return false;
 }
-
 export async function playXO(sock,m,n) {
   const jid=m.key.remoteJid,g=games.get(jid),who=whoOf(m);
   if(!g)return false;
@@ -47,7 +47,7 @@ export async function playXO(sock,m,n) {
   }
   if(n==='انسحب') {
     if(!g.players.has(who)){await sock.sendMessage(jid,{text:'أنت مش مشارك في اللعبة.'});return true;}
-    games.delete(jid);await sock.sendMessage(jid,{text:`🚪 ${mention(who)} انسحب، وانتهت اللعبة.`,mentions:[who]});return true;
+    games.delete(jid);await sock.sendMessage(jid,{text:'🚪 '+mention(who)+' انسحب، وانتهت اللعبة.',mentions:[who]});return true;
   }
   if(!g.players.has(who)||!g.turn)return true;
   if(who!==g.turn)return true;
@@ -59,10 +59,10 @@ export async function playXO(sock,m,n) {
   const won=wins.some(line=>line.every(x=>g.board[x]===g.board[line[0]]));
   if(won||g.board.every(x=>x==='X'||x==='O')) {
     games.delete(jid);
-    await sock.sendMessage(jid,{text:`${won?'🏆 انتهت اللعبة!':'🤝 تعادل!'}\n${render(g.board)}\n${won?'الفائز: '+mention(who):''}`,mentions:[who]});
+    await sock.sendMessage(jid,{text:(won?'🏆 انتهت اللعبة!':'🤝 تعادل!')+'\n'+render(g.board)+'\n'+(won?'الفائز: '+mention(who):''),mentions:[who]});
   } else {
     g.turn=[...g.players].find(x=>x!==who);
-    await sock.sendMessage(jid,{text:`${render(g.board)}\nالدور: ${mention(g.turn)}\nاكتب .لعب رقم`,mentions:[g.turn]});
+    await sock.sendMessage(jid,{text:render(g.board)+'\nالدور: '+mention(g.turn)+'\nاكتب .لعب رقم',mentions:[g.turn]});
   }
   return true;
 }
