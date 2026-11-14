@@ -1,3 +1,15 @@
 import {getDB,saveDB} from '../database/db.js';
 import {getMentioned} from '../utils/helpers.js';
-export async function marriageCommand(sock,m,cmd){const jid=m.key.remoteJid, people=getMentioned(m),db=getDB();if(cmd==='زواج'){if(people.length!==2){await sock.sendMessage(jid,{text:'💍 اعمل منشن لشخصين لإقامة مراسم الزواج الساخرة.'});return true;}db.marriages[jid]=people;saveDB(db);await sock.sendMessage(jid,{text:`💍 تمت مراسم الزواج الأسطورية!\\n👰 @${people[0].split('@')[0]}\\n🤵 @${people[1].split('@')[0]}\\n😂 زواج ترفيهي فقط.`,mentions:people});return true;}if(cmd==='طلاق'){const c=db.marriages[jid];if(!c){await sock.sendMessage(jid,{text:'لا يوجد زواج مسجل حاليًا.'});return true;}delete db.marriages[jid];saveDB(db);await sock.sendMessage(jid,{text:'💔 تم الطلاق رسميًا 😂',mentions:c});return true;}return false;}
+export async function marriageCommand(sock,m,cmd) {
+ const jid=m.key.remoteJid,people=getMentioned(m),db=getDB();
+ if(cmd==='زواج'){
+  if(people.length!==2){await sock.sendMessage(jid,{text:'💍 اعمل منشن لشخصين لإقامة مراسم الزواج الساخرة.'});return true;}
+  db.marriages[jid]=people;saveDB(db);
+  await sock.sendMessage(jid,{text:`💍 تمت مراسم الزواج الأسطورية!\n👰 @${people[0].split('@')[0]}\n🤵 @${people[1].split('@')[0]}\n😂 زواج ترفيهي فقط.`,mentions:people});return true;
+ }
+ if(cmd==='طلاق'){
+  const couple=db.marriages[jid];if(!couple){await sock.sendMessage(jid,{text:'لا يوجد زواج مسجل حاليًا.'});return true;}
+  delete db.marriages[jid];saveDB(db);await sock.sendMessage(jid,{text:'💔 تم الطلاق رسميًا 😂',mentions:couple});return true;
+ }
+ return false;
+}
