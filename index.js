@@ -13,26 +13,55 @@ async function startBot() {
   starting = true;
 
   try {
-    if (!config.pairingNumber) {
-      throw new Error('ضع PAIRING_NUMBER في متغيرات البيئة.');
+    const phoneNumber = String(config.pairingNumber || '').replace(/\\D/g, '');
+    if (!phoneNumber || phoneNumber.length < 10) {
+      throw new Error('رقم الربط غير صحيح. تأكد من PAIRING_NUMBER مع كود الدولة، أرقام فقط.');
     }
 
     const { state, saveCreds } = await useMultiFileAuthState('./auth_info_baileys');
+
     const sock = makeWASocket({
       auth: state,
-      logger: pino({ level: 'silent' }),
-      printQRInTerminal: false,
+      logger: pino({ level: 'warn' }),
       markOnlineOnConnect: false,
       syncFullHistory: false,
-      browser: ['Anime Bot', 'Chrome', '1.0.0']
+      connectTimeoutMs: 60000,
+      defaultQueryTimeoutMs: 60000
     });
+
+    let pairingCodeRequested = false;
 
     sock.ev.on('creds.update', saveCreds);
+
     sock.ev.on('messages.upsert', update => {
-      messageHandler(sock, update).catch(error => console.error('خطأ في معالجة الرسالة:', error));
+      messageHandler(sock, update).catch(error => {
+        console.error('خطأ في معالجة الرسالة:', error);
+      });
     });
 
-    sock.ev.on('connection.update', async ({ connection, lastDisconnect }) => {
+    sock.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
+      // Baileys must emit its QR/connection event before a pairing code is requested.
+      // In pairing-code mode, this QR event is only a signal; it is not shown to the user.
+      if (qr && !state.creds.registered && !pairingCodeRequested) {
+        pairingCodeRequested = true;
+        try {
+          console.log('📲 واتساب أصبح جاهزًا لطلب رمز الربط...');
+          console.log('📞 رقم واتساب: +' + phoneNumber);
+
+          const pairingCode = await sock.requestPairingCode(phoneNumber);
+
+          console.log('\n========================================');
+          console.log('🔐 رمز ربط واتساب: ' + pairingCode);
+          console.log('افتح واتساب على الهاتف الذي يحمل الرقم أعلاه:');
+          console.log('الأجهزة المرتبطة > ربط جهاز > الربط باستخدام رقم الهاتف');
+          console.log('ثم أدخل الرمز الظاهر هنا كما هو.');
+          console.log('⚠️ الرمز مؤقت وسري، ولا تشاركه مع أي شخص.');
+          console.log('========================================\n');
+        } catch (error) {
+          console.error('❌ فشل طلب رمز الربط من واتساب:', error?.message || error);
+        }
+      }
+
       if (connection === 'open') {
         starting = false;
         console.log('✅ تم الاتصال بواتساب بنجاح');
@@ -49,39 +78,26 @@ async function startBot() {
 
         if (statusCode !== DisconnectReason.loggedOut) {
           console.log('⚠️ انقطع الاتصال، ستتم إعادة المحاولة بعد 5 ثوانٍ');
-          setTimeout(() => startBot().catch(error => {
-            starting = false;
-            console.error('فشل إعادة الاتصال:', error);
-          }), 5000);
+          setTimeout(() => {
+            startBot().catch(error => {
+              starting = false;
+              console.error('فشل إعادة الاتصال:', error);
+            });
+          }, 5000);
         } else {
-          console.log('❌ تم تسجيل الخروج من واتساب؛ احذف جلسة الربط القديمة ثم اربط الجهاز من جديد.');
+          console.log('❌ تم تسجيل الخروج من واتساب؛ احذف جلسة الربط القديمة من ملفات الاستضافة ثم اربط الجهاز من جديد.');
         }
       }
     });
 
-    if (!state.creds.registered) {
-      console.log('\n========================================');
-      console.log('📲 جاري طلب كود ربط واتساب...');
-      console.log('📞 رقم واتساب: +' + config.pairingNumber);
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      const pairingCode = await sock.requestPairingCode(config.pairingNumber);
-
-      console.log('\n🔐 رسالة الربط:');
-      console.log('كود ربط بوت Gojo الخاص بك هو: ' + pairingCode);
-      console.log('\nطريقة إدخال الكود:');
-      console.log('1) افتح واتساب على الهاتف الذي يحمل الرقم أعلاه.');
-      console.log('2) افتح الأجهزة المرتبطة > ربط جهاز.');
-      console.log('3) اختر الربط باستخدام رقم الهاتف.');
-      console.log('4) أدخل الكود الظاهر أعلاه كما هو.');
-      console.log('⚠️ الكود مؤقت وسري، ولا تشاركه مع أي شخص.');
-      console.log('========================================\n');
-    } else {
+    if (state.creds.registered) {
       console.log('🔄 جلسة واتساب محفوظة؛ جاري الاتصال...');
+    } else {
+      console.log('⏳ جاري الاتصال بواتساب لطلب رمز الربط...');
     }
   } catch (error) {
     starting = false;
-    console.error('❌ تعذر تشغيل البوت أو طلب كود الربط:', error);
+    console.error('❌ تعذر تشغيل البوت:', error?.stack || error);
     throw error;
   }
 }
