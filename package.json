@@ -1,0 +1,19 @@
+{
+  "name": "whatsapp-anime-bot",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "check": "node --check index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.18",
+    "dotenv": "^16.4.7",
+    "pino": "^9.6.0"
+  }
+}
