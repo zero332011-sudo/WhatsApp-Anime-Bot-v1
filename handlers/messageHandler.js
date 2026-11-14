@@ -13,8 +13,8 @@ export async function messageHandler(sock, update) {
       const db=getDB();
       if(jid.endsWith('@g.us')) { db.groups[jid] ||= {prayerEnabled:false}; saveDB(db); }
       if(await filterMessage(sock,m,text)) continue;
-      if(text && await guessMessage(sock,m,text)) continue;
       if(text && await xoMessage(sock,m,text)) continue;
+      if(text && await guessMessage(sock,m,text)) continue;
       if(text) await commandHandler(sock,m,text);
     } catch(error) { console.error('Message handler:',error); }
   }
