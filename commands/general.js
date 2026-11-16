@@ -7,7 +7,7 @@ import { showMedia } from '../system/media.js';
 export async function generalCommand(sock, m, text) {
   const jid = m.key.remoteJid;
   const sender = m.key.participant || jid;
-  const cmd = text.trim().split(/\\s+/)[0];
+  const cmd = text.trim().split(/\s+/)[0];
 
   if (['.الاوامر', '.اوامر'].includes(cmd)) {
     const db = getDB();
@@ -50,7 +50,7 @@ export async function generalCommand(sock, m, text) {
     return true;
   }
   if (cmd === '.حاله') {
-    await sock.sendMessage(jid, { text: '🟢 البوت يعمل\\n⏱️ مدة التشغيل: ' + Math.floor(process.uptime()) + ' ثانية' });
+    await sock.sendMessage(jid, { text: '🟢 البوت يعمل\n⏱️ مدة التشغيل: ' + Math.floor(process.uptime()) + ' ثانية' });
     return true;
   }
   if (cmd === '.عرض') return showMedia(sock, m);
@@ -64,11 +64,11 @@ export async function generalCommand(sock, m, text) {
     const stats = db.messageStats?.[jid] || { total: 0, members: {} };
     const top = Object.entries(stats.members || {}).sort((a, b) => b[1] - a[1]).slice(0, 3);
     const lines = top.length
-      ? top.map(([id, count], index) => `${index + 1}. @${id.split('@')[0]} — ${count} رسالة`).join('\\n')
+      ? top.map(([id, count], index) => `${index + 1}. @${id.split('@')[0]} — ${count} رسالة`).join('\n')
       : 'لا توجد بيانات نشاط بعد.';
     const date = new Date().toLocaleDateString('ar-EG', { timeZone: config.timezone });
     await sock.sendMessage(jid, {
-      text: `📊 إحصائيات المجموعة\\n📅 التاريخ: ${date}\\n💬 إجمالي الرسائل المسجلة: ${stats.total}\\n🏆 أكثر 3 أعضاء نشاطًا:\\n${lines}`,
+      text: `📊 إحصائيات المجموعة\n📅 التاريخ: ${date}\n💬 إجمالي الرسائل المسجلة: ${stats.total}\n🏆 أكثر 3 أعضاء نشاطًا:\n${lines}`,
       mentions: top.map(([id]) => id)
     });
     return true;
