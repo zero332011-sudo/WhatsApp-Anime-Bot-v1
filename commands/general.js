@@ -1,7 +1,7 @@
 import { getDB, getUser, saveDB } from '../database/db.js';
 import { getTargetJid } from '../utils/helpers.js';
 import { ranks, config } from '../config/settings.js';
-import { isDeveloper } from '../utils/permissions.js';
+import { isDeveloper, isBotManager, isOwner } from '../utils/permissions.js';
 import { showMedia } from '../system/media.js';
 
 export async function generalCommand(sock, m, text) {
@@ -41,6 +41,27 @@ export async function generalCommand(sock, m, text) {
 .وقت | .التاريخ | .حاله
 `;
     await sock.sendMessage(jid, { text: menu });
+    return true;
+  }
+
+  if (cmd === '.اوامر_المطور' || cmd === '.اوامر المطور') {
+    if (!isBotManager(sender)) {
+      await sock.sendMessage(jid, { text: '⛔ قائمة أوامر المطور للإمبراطور والرتب من 1 إلى 5 والمطورين.' });
+      return true;
+    }
+    const lines = [
+      '👑 قائمة أوامر الإدارة',
+      '.اضافه مطور @عضو',
+      '.اضافه كلمه كلمة | .حذف كلمه كلمة',
+      '.اضافه ايموجي 😀 | .حذف ايموجي 😀',
+      '.اضافه ملصق | .حذف ملصق (بالرد على الملصق)',
+      '.كتم @عضو | .فك كتم @عضو | .طرد @عضو',
+      '.كتم الجروب | .فك الجروب',
+      '.احصائيات'
+    ];
+    if (isDeveloper(sender)) lines.push('.تفعيل الصلاة | .ايقاف الصلاة');
+    if (isOwner(sender)) lines.push('.اسم الاسم الجديد');
+    await sock.sendMessage(jid, { text: lines.join('\\n') });
     return true;
   }
 
