@@ -41,7 +41,7 @@ async function finish(sock, jid, game, winner) {
 }
 async function nextRound(sock, jid, game) {
   if (games.get(jid) !== game) return;
-  if (game.participants.size <= 1) {
+  if (game.round > 0 && game.participants.size <= 1) {
     const winner = [...game.participants][0];
     if (winner) return finish(sock, jid, game, winner);
     clearTimeout(game.timer); games.delete(jid);
