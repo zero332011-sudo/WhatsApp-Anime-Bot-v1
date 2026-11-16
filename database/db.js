@@ -4,7 +4,7 @@ import path from 'node:path';
 const dir = './database';
 const file = path.join(dir, 'data.json');
 const defaults = () => ({
-  users: {}, groups: {}, developers: [], muted: {}, blockedWords: [],
+  users: {}, groups: {}, developers: [], ownerJids: [], botName: '', messageStats: {}, muted: {}, blockedWords: [],
   blockedEmojis: [], blockedStickers: [], anime: {}, games: {},
   marriages: {}, transfers: []
 });
@@ -22,6 +22,9 @@ function normalize(data = {}) {
     users: data.users || {},
     groups: data.groups || {},
     developers: data.developers || [],
+    ownerJids: data.ownerJids || [],
+    botName: data.botName || '',
+    messageStats: data.messageStats || {},
     muted: data.muted || {},
     anime: data.anime || {},
     games: data.games || {},
