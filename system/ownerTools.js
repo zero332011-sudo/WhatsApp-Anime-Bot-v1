@@ -1,5 +1,5 @@
 import {getDB,saveDB} from '../database/db.js';
-import {isOwner} from '../utils/permissions.js';
+import {isOwner, isBotManager} from '../utils/permissions.js';
 export async function ownerTools(sock,m,text) {
  const jid=m.key.remoteJid,sender=m.key.participant||jid;
  const rename = text.trim().startsWith('.اسم');
@@ -13,7 +13,7 @@ export async function ownerTools(sock,m,text) {
  const commands=['.اضافه ايموجي','.اضافه ملصق','.حذف ايموجي','.حذف ملصق','.اضافه كلمه','.حذف كلمه'];
  const cmd=commands.find(x=>text.startsWith(x));
  if(!cmd)return false;
- if(!isOwner(sender)){await sock.sendMessage(jid,{text:'⛔ الأمر للمطور الأساسي فقط.'});return true;}
+ if(!isBotManager(sender)){await sock.sendMessage(jid,{text:'⛔ الأمر للإمبراطور والرتب من 1 إلى 5 أو المطورين.'});return true;}
  const db=getDB(),ctx=m.message?.extendedTextMessage?.contextInfo,val=text.slice(cmd.length).trim();
  if(cmd.includes('ملصق')){
   const sticker=ctx?.quotedMessage?.stickerMessage;
