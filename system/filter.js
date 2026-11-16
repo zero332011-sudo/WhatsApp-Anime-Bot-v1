@@ -15,7 +15,7 @@ const normalize = value => String(value || '').toLowerCase().normalize('NFKC')
 export async function filterMessage(sock, m, text) {
   const jid = m.key.remoteJid, sender = m.key.participant || jid;
   if (!jid.endsWith('@g.us') || isDeveloper(sender)) return false;
-  if (isMuted(sender)) return true;
+  if (isMuted(sender, jid)) return true;
   const db = getDB(), body = normalize(text), sticker = m.message?.stickerMessage;
   const hash = sticker?.fileSha256 ? Buffer.from(sticker.fileSha256).toString('base64') : null;
   const blocked = [...DEFAULT_BLOCKED_WORDS, ...(db.blockedWords || [])].map(normalize).filter(Boolean);
