@@ -3,7 +3,7 @@ import path from 'node:path';
 import {downloadMediaMessage} from '@whiskeysockets/baileys';
 import {getDB,saveDB} from '../database/db.js';
 import {isDeveloper} from '../utils/permissions.js';
-const mediaDir=path.resolve('./anime/media');
+const mediaDir=path.resolve(process.env.MEDIA_DIR || path.join(process.env.DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH || '.', 'anime', 'media'));
 const safe=s=>String(s||'').replace(/[^\p{L}\p{N}_-]/gu,'_').slice(0,80);
 const parsePair=value=>String(value||'').split('|').map(x=>x.trim());
 export async function animeCommand(sock,m,text) {
