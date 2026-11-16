@@ -39,9 +39,7 @@ export async function generalCommand(sock, m, text) {
 
 🕒 عام
 .وقت | .التاريخ | .حاله
-
-👑 المطور الأساسي
-.اسم اسم البوت`;
+`;
     await sock.sendMessage(jid, { text: menu });
     return true;
   }
