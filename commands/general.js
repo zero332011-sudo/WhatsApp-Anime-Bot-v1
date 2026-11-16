@@ -89,7 +89,7 @@ export async function generalCommand(sock, m, text) {
       : 'لا توجد بيانات نشاط بعد.';
     const date = new Date().toLocaleDateString('ar-EG', { timeZone: config.timezone });
     await sock.sendMessage(jid, {
-      text: `📊 إحصائيات المجموعة\n📅 التاريخ: ${date}\n💬 إجمالي الرسائل المسجلة: ${stats.total}\n🏆 أكثر 3 أعضاء نشاطًا:\n${lines}`,
+      text: `📊 إحصائيات المجموعة\n📅 التاريخ: ${date}\n💬 إجمالي الرسائل المسجلة منذ تشغيل البوت: ${stats.total}\n🏆 أكثر 3 أعضاء نشاطًا:\n${lines}`,
       mentions: top.map(([id]) => id)
     });
     return true;
