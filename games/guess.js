@@ -68,13 +68,9 @@ async function nextRound(sock, jid, game) {
   clearTimeout(game.timer);
   game.timer = setTimeout(async () => {
     if (games.get(jid) !== game) return;
-    for (const id of [...game.participants]) {
-      game.hearts[id] = Math.max(0, (game.hearts[id] ?? HEARTS) - 1);
-      if (game.hearts[id] <= 0) game.participants.delete(id);
-    }
     await sock.sendMessage(jid, {
-      text: `⏰ انتهى الوقت!\n✅ الإجابة: *${game.answerName}*\n☠️ من انتهت قلوبه خرج من اللعبة.\n❤️ القلوب المتبقية:\n${heartsLine(game)}`,
-      mentions: [...new Set([...game.participants, ...(selected ? [selected] : [])])]
+      text: `⏰ انتهى الوقت!\\n✅ الإجابة: *${game.answerName}*\\nلم يخسر أي مشارك قلبًا؛ لم توجد إجابة صحيحة هذه الجولة.\\n❤️ القلوب:\\n${heartsLine(game)}`,
+      mentions: [...game.participants]
     });
     await nextRound(sock, jid, game);
   }, ROUND_MS);
@@ -121,15 +117,18 @@ export async function guessMessage(sock, m, text) {
   if (!game.participants.has(who)) return false;
   if (game.answer.has(normalizeAnswer(text))) {
     clearTimeout(game.timer);
-    for (const id of [...game.participants]) {
-      if (id !== who) {
-        game.hearts[id] = Math.max(0, (game.hearts[id] ?? HEARTS) - 1);
-        if (game.hearts[id] <= 0) game.participants.delete(id);
+    const candidates = [...game.participants].filter(id => id !== who);
+    const selected = candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : null;
+    if (selected) {
+      game.hearts[selected] = Math.max(0, (game.hearts[selected] ?? HEARTS) - 1);
+      if (game.hearts[selected] <= 0) {
+        game.participants.delete(selected);
+        game.eliminated.add(selected);
       }
     }
     await sock.sendMessage(jid, {
-      text: `🏆 إجابة صحيحة يا @${who.split('@')[0]}!\n🎯 الإجابة: ${game.answerName}\n❤️ الفائز احتفظ بقلوبه.\n☠️ الخاسرون فقدوا قلبًا.\n\n❤️ القلوب:\n${heartsLine(game)}`,
-      mentions: [...game.participants]
+      text: `🏆 إجابة صحيحة يا @${who.split('@')[0]}!\\n🎯 الإجابة: ${game.answerName}\\n${selected ? `🎯 تم اختيار @${selected.split('@')[0]} عشوائيًا ليخسر قلبًا واحدًا.` : 'لا يوجد مشارك آخر ليخسر قلبًا.'}\\n\\n❤️ القلوب:\\n${heartsLine(game)}`,
+      mentions: [...new Set([...game.participants, ...(selected ? [selected] : [])])]
     });
     await nextRound(sock, jid, game);
     return true;
