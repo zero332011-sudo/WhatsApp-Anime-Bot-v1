@@ -35,5 +35,7 @@
 ## النشر على Railway
 - إعدادات النشر موجودة في `railway.json`، وتشغّل الخدمة باستخدام `npm start` مع إعادة التشغيل عند الفشل.
 - أنشئ مشروعًا جديدًا من مستودع GitHub، ثم أضف متغيرات `.env.example` في Variables داخل Railway (`PAIRING_NUMBER` و`OWNER_NUMBER` و`BOT_NAME` و`TIMEZONE`).
-- فعّل Volume دائمًا واربطه بمسار `/app` حتى لا تضيع جلسة واتساب وبيانات `database/data.json` عند إعادة النشر. لا تشارك سجلات رمز الربط.
+- أضف Volume من إعدادات خدمة Railway واجعل Mount Path هو `/data` (لا تربطه على `/app` حتى لا يحجب ملفات التطبيق).
+- أضف المتغير `DATA_DIR=/data` في Variables. سيحفظ البوت جلسة واتساب في `/data/auth_info_baileys` وقاعدة البيانات في `/data/database/data.json` وملفات الحلقات في `/data/anime/media`.
+- لا تضف `MEDIA_DIR` إلا إذا أردت مسارًا مختلفًا؛ الافتراضي يتبع `DATA_DIR`. لا تشارك سجلات رمز الربط.
 - هذا يجهز إعدادات المستودع فقط؛ لا ينشئ مشروع Railway ولا يربط حسابك تلقائيًا.
