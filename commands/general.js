@@ -9,7 +9,7 @@ export async function generalCommand(sock, m, text) {
   const sender = m.key.participant || jid;
   const cmd = text.trim().split(/\s+/)[0];
 
-  if (['.الاوامر', '.اوامر'].includes(cmd)) {
+  if (['.الاوامر', '.اوامر'].includes(text.trim())) {
     const db = getDB();
     const botName = db.botName || config.name;
     const menu = `🍥 ${botName}
