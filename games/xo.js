@@ -2,7 +2,7 @@ import {getTargetJid} from '../utils/helpers.js';
 const games = new Map();
 const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
 const whoOf = m => m.key.participant || m.key.remoteJid;
-const render = b => `❌ ${b[0]} | ${b[1]} | ${b[2]}\n---+---+---\n❌ ${b[3]} | ${b[4]} | ${b[5]}\n---+---+---\n❌ ${b[6]} | ${b[7]} | ${b[8]}`;
+const render = b => ` ${b[0]} | ${b[1]} | ${b[2]}\n---+---+---\n ${b[3]} | ${b[4]} | ${b[5]}\n---+---+---\n ${b[6]} | ${b[7]} | ${b[8]}`;
 const mention = jid => '@' + jid.split('@')[0];
 
 export async function startXO(sock, m, opponent) {
