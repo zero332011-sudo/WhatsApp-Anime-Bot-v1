@@ -1,7 +1,6 @@
 import { config } from '../config/settings.js';
-import { getDB, saveDB } from '../database/db.js';
+import { getDB, saveDB, getUser } from '../database/db.js';
 import { jidNumber } from './helpers.js';
-import { getUser } from '../database/db.js';
 
 export function rememberOwnerIdentity(message) {
   const key = message?.key || {};
