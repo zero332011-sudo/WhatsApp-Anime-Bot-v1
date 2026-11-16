@@ -1,5 +1,6 @@
 import makeWASocket, { DisconnectReason, useMultiFileAuthState } from '@whiskeysockets/baileys';
 import pino from 'pino';
+import path from 'node:path';
 import 'dotenv/config';
 import { messageHandler } from './handlers/messageHandler.js';
 import { config } from './config/settings.js';
@@ -21,7 +22,9 @@ async function startBot() {
       throw new Error('رقم الربط غير صحيح. تأكد من PAIRING_NUMBER مع كود الدولة، أرقام فقط.');
     }
 
-    const { state, saveCreds } = await useMultiFileAuthState('./auth_info_baileys');
+    const dataRoot = process.env.DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH || '.';
+    const authDir = path.join(dataRoot, 'auth_info_baileys');
+    const { state, saveCreds } = await useMultiFileAuthState(authDir);
 
     const sock = makeWASocket({
       auth: state,
