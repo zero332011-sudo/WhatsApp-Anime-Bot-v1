@@ -19,7 +19,7 @@ async function isBotAdmin(sock, jid) {
 export async function moderationCommand(sock, m, text) {
   const jid = m.key.remoteJid, sender = m.key.participant || jid;
   const normalized = text.trim().replace(/\s+/g, ' ');
-  const cmd = normalized.startsWith('.فك كتم') ? '.فك كتم' : normalized.split(' ')[0];
+  const cmd = ['.كتم الجروب','.فك الجروب','.فك كتم'].find(x => normalized === x || normalized.startsWith(x + ' ')) || normalized.split(' ')[0];
   if (!['.كتم','.فك','.فك_كتم','.فك كتم','.كتم الجروب','.فك الجروب','.طرد'].includes(cmd)) return false;
   if (!jid.endsWith('@g.us')) { await sock.sendMessage(jid, { text: '🛡️ الأمر متاح داخل المجموعات فقط.' }); return true; }
   if (!await canManage(sock, jid, sender)) { await sock.sendMessage(jid, { text: '⛔ الأمر للمشرفين أو المطوّر فقط.' }); return true; }
