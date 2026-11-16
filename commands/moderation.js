@@ -14,7 +14,8 @@ async function isBotAdmin(sock, jid) {
     const meta = await sock.groupMetadata(jid);
     const me = sock.user?.id || '';
     const botIds = new Set([me, me.split(':')[0] + (me.includes('@') ? '@' + me.split('@')[1] : ''), sock.user?.lid].filter(Boolean));
-    return meta.participants.some(p => (botIds.has(p.id) || botIds.has(p.lid) || botIds.has(p.phoneNumber)) && ['admin','superadmin'].includes(p.admin));
+    const botNumbers = new Set([me, sock.user?.lid].filter(Boolean).map(x => x.split('@')[0].split(':')[0].replace(/\\D/g, '')));
+    return meta.participants.some(p => (botIds.has(p.id) || botIds.has(p.lid) || botNumbers.has(String(p.phoneNumber || '').replace(/\\D/g, ''))) && ['admin','superadmin'].includes(p.admin));
   } catch { return false; }
 }
 export async function moderationCommand(sock, m, text) {
