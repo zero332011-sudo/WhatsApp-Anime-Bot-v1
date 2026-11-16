@@ -1,15 +1,23 @@
-import {getDB,saveDB} from '../database/db.js';
-import {getMentioned} from '../utils/helpers.js';
-export async function marriageCommand(sock,m,cmd) {
- const jid=m.key.remoteJid,people=getMentioned(m),db=getDB();
- if(cmd==='زواج'){
-  if(people.length!==2){await sock.sendMessage(jid,{text:'💍 اعمل منشن لشخصين لإقامة مراسم الزواج الساخرة.'});return true;}
-  db.marriages[jid]=people;saveDB(db);
-  await sock.sendMessage(jid,{text:`💍 تمت مراسم الزواج الأسطورية!\n👰 @${people[0].split('@')[0]}\n🤵 @${people[1].split('@')[0]}\n😂 زواج ترفيهي فقط.`,mentions:people});return true;
- }
- if(cmd==='طلاق'){
-  const couple=db.marriages[jid];if(!couple){await sock.sendMessage(jid,{text:'لا يوجد زواج مسجل حاليًا.'});return true;}
-  delete db.marriages[jid];saveDB(db);await sock.sendMessage(jid,{text:'💔 تم الطلاق رسميًا 😂',mentions:couple});return true;
- }
- return false;
+import { getDB, saveDB } from '../database/db.js';
+export async function marriageCommand(sock, m, cmd) {
+  const jid = m.key.remoteJid;
+  if (!jid.endsWith('@g.us')) { await sock.sendMessage(jid, { text: '💍 الأمر متاح في المجموعات فقط.' }); return true; }
+  if (!['زواج', 'طلاق'].includes(cmd)) return false;
+  let members;
+  try { members = (await sock.groupMetadata(jid)).participants.map(x => x.id).filter(x => x !== (m.key.participant || jid)); }
+  catch { await sock.sendMessage(jid, { text: '❌ لم أستطع جلب أعضاء المجموعة.' }); return true; }
+  if (members.length < 2) { await sock.sendMessage(jid, { text: 'لا يوجد عدد كافٍ لاختيار شخصين.' }); return true; }
+  const first = Math.floor(Math.random() * members.length);
+  let second = Math.floor(Math.random() * (members.length - 1));
+  if (second >= first) second++;
+  const couple = [members[first], members[second]];
+  const db = getDB();
+  if (cmd === 'زواج') {
+    db.marriages[jid] = couple; saveDB(db);
+    await sock.sendMessage(jid, { text: `╭━━━〔 💍 زواج عشوائي 〕━━━╮\n┃ 🎉 تم اختيار عروسين جديدين!\n┃ 👰 @${couple[0].split('@')[0]}\n┃ 🤵 @${couple[1].split('@')[0]}\n┃ ❤️ ألف مبروك!\n╰━━━━━━━━━━━━━━━━━━━━╯`, mentions: couple });
+  } else {
+    delete db.marriages[jid]; saveDB(db);
+    await sock.sendMessage(jid, { text: `╭━━━〔 💔 طلاق عشوائي 〕━━━╮\n┃ 😂 حدثت كارثة زوجية!\n┃ 💔 @${couple[0].split('@')[0]}\n┃ 💔 @${couple[1].split('@')[0]}\n┃ 🥀 تم الطلاق!\n╰━━━━━━━━━━━━━━━━━━━━╯`, mentions: couple });
+  }
+  return true;
 }
