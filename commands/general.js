@@ -12,6 +12,14 @@ export async function generalCommand(sock,m,text) {
   if(cmd==='.وقت'||cmd==='.التاريخ'){const now=new Date().toLocaleString('ar-EG',{timeZone:config.timezone});await sock.sendMessage(jid,{text:'🕒 '+now});return true;}
   if(cmd==='.حاله'){await sock.sendMessage(jid,{text:'🟢 البوت يعمل\n⏱️ مدة التشغيل: '+Math.floor(process.uptime())+' ثانية'});return true;}
   if(cmd==='.عرض') return showMedia(sock,m);
+  if(cmd==='.احصائيات') {
+    if(!jid.endsWith('@g.us')) { await sock.sendMessage(jid,{text:'📊 الإحصائيات متاحة داخل المجموعات فقط.'}); return true; }
+    const db=getDB(), stats=db.messageStats?.[jid]||{total:0,members:{}};
+    const top=Object.entries(stats.members||{}).sort((a,b)=>b[1]-a[1]).slice(0,3);
+    const lines=top.length?top.map(([id,count,i])=>{const n=top.findIndex(x=>x[0]===id)+1;return n+'. @'+id.split('@')[0]+' — '+count+' رسالة';}).join('\\n'):'لا توجد بيانات نشاط بعد.';
+    await sock.sendMessage(jid,{text:'📊 إحصائيات المجموعة\\n📅 '+new Date().toLocaleDateString('ar-EG',{timeZone:config.timezone})+'\\n💬 إجمالي الرسائل المسجلة: '+stats.total+'\\n🏆 أكثر 3 أعضاء نشاطًا:\\n'+lines,mentions:top.map(x=>x[0])});
+    return true;
+  }
   if(cmd==='.معلومات'){
     const target=getTargetJid(m)||s,x=getUser(target);
     const caption='👤 '+x.nickname+'\n📱 '+target.split('@')[0]+'\n🆔 '+target+'\n👑 '+(ranks[x.rank]||'غير محددة')+'\n🏦 '+x.bank+' جنيه\n👛 '+x.wallet+' جنيه';
