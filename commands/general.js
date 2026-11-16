@@ -44,7 +44,7 @@ export async function generalCommand(sock, m, text) {
     return true;
   }
 
-  if (text.trim().replace(/\\s+/g, ' ') === '.اوامر المطور') {
+  if (text.trim().replace(/\s+/g, ' ') === '.اوامر المطور') {
     if (!isBotManager(sender)) {
       await sock.sendMessage(jid, { text: '⛔ قائمة أوامر المطور للإمبراطور والرتب من 1 إلى 5 والمطورين.' });
       return true;
@@ -61,7 +61,7 @@ export async function generalCommand(sock, m, text) {
     ];
     if (isDeveloper(sender)) lines.push('.تفعيل الصلاة | .ايقاف الصلاة');
     if (isOwner(sender)) lines.push('.اسم الاسم الجديد');
-    await sock.sendMessage(jid, { text: lines.join('\\n') });
+    await sock.sendMessage(jid, { text: lines.join('\n') });
     return true;
   }
 
