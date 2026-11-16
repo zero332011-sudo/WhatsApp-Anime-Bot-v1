@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const dir = './database';
+const dataRoot = process.env.DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH || '.';
+const dir = path.join(dataRoot, 'database');
 const file = path.join(dir, 'data.json');
 const defaults = () => ({
   users: {}, groups: {}, developers: [], ownerJids: [], botName: '', messageStats: {}, muted: {}, blockedWords: [],
