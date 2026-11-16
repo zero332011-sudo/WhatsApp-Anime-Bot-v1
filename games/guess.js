@@ -69,7 +69,7 @@ async function nextRound(sock, jid, game) {
   game.timer = setTimeout(async () => {
     if (games.get(jid) !== game) return;
     await sock.sendMessage(jid, {
-      text: `⏰ انتهى الوقت!\\n✅ الإجابة: *${game.answerName}*\\nلم يخسر أي مشارك قلبًا؛ لم توجد إجابة صحيحة هذه الجولة.\\n❤️ القلوب:\\n${heartsLine(game)}`,
+      text: `⏰ انتهى الوقت!\n✅ الإجابة: *${game.answerName}*\nلم يخسر أي مشارك قلبًا؛ لم توجد إجابة صحيحة هذه الجولة.\n❤️ القلوب:\n${heartsLine(game)}`,
       mentions: [...game.participants]
     });
     await nextRound(sock, jid, game);
@@ -127,7 +127,7 @@ export async function guessMessage(sock, m, text) {
       }
     }
     await sock.sendMessage(jid, {
-      text: `🏆 إجابة صحيحة يا @${who.split('@')[0]}!\\n🎯 الإجابة: ${game.answerName}\\n${selected ? `🎯 تم اختيار @${selected.split('@')[0]} عشوائيًا ليخسر قلبًا واحدًا.` : 'لا يوجد مشارك آخر ليخسر قلبًا.'}\\n\\n❤️ القلوب:\\n${heartsLine(game)}`,
+      text: `🏆 إجابة صحيحة يا @${who.split('@')[0]}!\n🎯 الإجابة: ${game.answerName}\n${selected ? `🎯 تم اختيار @${selected.split('@')[0]} عشوائيًا ليخسر قلبًا واحدًا.` : 'لا يوجد مشارك آخر ليخسر قلبًا.'}\n\n❤️ القلوب:\n${heartsLine(game)}`,
       mentions: [...new Set([...game.participants, ...(selected ? [selected] : [])])]
     });
     await nextRound(sock, jid, game);
