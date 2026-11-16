@@ -44,7 +44,7 @@ export async function generalCommand(sock, m, text) {
     return true;
   }
 
-  if (cmd === '.اوامر_المطور' || cmd === '.اوامر المطور') {
+  if (text.trim().replace(/\\s+/g, ' ') === '.اوامر المطور') {
     if (!isBotManager(sender)) {
       await sock.sendMessage(jid, { text: '⛔ قائمة أوامر المطور للإمبراطور والرتب من 1 إلى 5 والمطورين.' });
       return true;
