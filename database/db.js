@@ -62,7 +62,11 @@ function numberOf(jid) {
 export function getUser(jid) {
   const db = getDB();
   if (!db.users[jid]) {
-    const owner = numberOf(jid) === String(process.env.OWNER_NUMBER || '201032219184').replace(/\D/g, '');
+    let ownerNumber = String(process.env.OWNER_NUMBER || '201032219184').replace(/\D/g, '');
+    if (ownerNumber.startsWith('0020')) ownerNumber = ownerNumber.slice(2);
+    else if (ownerNumber.startsWith('0')) ownerNumber = '20' + ownerNumber.slice(1);
+    else if (!ownerNumber.startsWith('20')) ownerNumber = '20' + ownerNumber;
+    const owner = numberOf(jid) === ownerNumber;
     const developer = owner || db.developers.some(x => numberOf(x) === numberOf(jid));
     db.users[jid] = {
       jid, nickname: 'عضو جديد', rank: 17,
