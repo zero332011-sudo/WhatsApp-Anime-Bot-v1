@@ -1,6 +1,7 @@
 import { config } from '../config/settings.js';
 import { getDB, saveDB } from '../database/db.js';
 import { jidNumber } from './helpers.js';
+import { getUser } from '../database/db.js';
 
 export function rememberOwnerIdentity(message) {
   const key = message?.key || {};
@@ -20,4 +21,8 @@ export function isOwner(jid) {
 export function isDeveloper(jid) {
   const db = getDB();
   return isOwner(jid) || db.developers.some(x => jidNumber(x) === jidNumber(jid) || x === jid);
+}
+
+export function isBotManager(jid) {
+  return isDeveloper(jid) || Number(getUser(jid).rank) <= 5;
 }
