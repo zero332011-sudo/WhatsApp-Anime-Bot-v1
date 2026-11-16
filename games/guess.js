@@ -23,7 +23,6 @@ function answerAliases(file) {
   const direct = aliases[name] || [];
   return new Set([normalizeAnswer(name), ...direct.map(normalizeAnswer)].filter(Boolean));
 }
-function mentionList(ids) { return ids.map(id => '@' + id.split('@')[0]).join('، '); }
 function heartsLine(game) {
   return [...game.participants].map(id => {
     const n = Math.max(0, game.hearts[id] || 0);
@@ -75,7 +74,7 @@ async function nextRound(sock, jid, game) {
     }
     await sock.sendMessage(jid, {
       text: `⏰ انتهى الوقت!\n✅ الإجابة: *${game.answerName}*\n☠️ من انتهت قلوبه خرج من اللعبة.\n❤️ القلوب المتبقية:\n${heartsLine(game)}`,
-      mentions: [...game.participants]
+      mentions: [...new Set([...game.participants, ...(selected ? [selected] : [])])]
     });
     await nextRound(sock, jid, game);
   }, ROUND_MS);
@@ -86,7 +85,7 @@ export async function startGuess(sock, m) {
   if (!jid.endsWith('@g.us')) { await sock.sendMessage(jid, { text: '🎯 لعبة خمن متاحة في المجموعات فقط.' }); return true; }
   if (games.has(jid)) { await sock.sendMessage(jid, { text: '🎯 توجد لعبة خمن جارية بالفعل. اكتب تم للمشاركة.' }); return true; }
   const owner = m.key.participant || jid;
-  const game = { owner, participants: new Set([owner]), hearts: { [owner]: HEARTS }, used: new Set(), round: 0, answer: new Set(), timer: null };
+  const game = { owner, participants: new Set([owner]), eliminated: new Set(), hearts: { [owner]: HEARTS }, used: new Set(), round: 0, answer: new Set(), timer: null };
   games.set(jid, game);
   await nextRound(sock, jid, game);
   return true;
@@ -97,6 +96,10 @@ export async function guessMessage(sock, m, text) {
   if (!game || !text || text.startsWith('.')) return false;
   if (text.trim() === 'تم') {
     if (!game.participants.has(who)) {
+      if (game.eliminated.has(who)) {
+        await sock.sendMessage(jid, { text: '⛔ خرجت من هذه اللعبة ولا يمكنك الانضمام مرة أخرى.' });
+        return true;
+      }
       game.participants.add(who);
       game.hearts[who] = HEARTS;
       await sock.sendMessage(jid, { text: `✅ @${who.split('@')[0]} انضم للعبة! ❤️❤️❤️`, mentions: [who] });
@@ -106,6 +109,10 @@ export async function guessMessage(sock, m, text) {
   if (who === game.owner) {
     const target = getTargetJid(m);
     if (target && !game.participants.has(target)) {
+      if (game.eliminated.has(target)) {
+        await sock.sendMessage(jid, { text: '⛔ هذا العضو خرج من اللعبة ولا يمكنه العودة.' });
+        return true;
+      }
       game.participants.add(target); game.hearts[target] = HEARTS;
       await sock.sendMessage(jid, { text: `✅ تمت إضافة @${target.split('@')[0]} للمشاركين. ❤️❤️❤️`, mentions: [target] });
       return true;
@@ -133,7 +140,7 @@ export async function guessMessage(sock, m, text) {
 export async function leaveGuess(sock, m) {
   const jid = m.key.remoteJid, game = games.get(jid), who = m.key.participant || jid;
   if (!game || !game.participants.has(who)) return false;
-  game.participants.delete(who); delete game.hearts[who];
+  game.participants.delete(who); game.eliminated.add(who); delete game.hearts[who];
   await sock.sendMessage(jid, { text: `🚪 @${who.split('@')[0]} انسحب من لعبة خمن.`, mentions: [who] });
   if (game.participants.size <= 1) await nextRound(sock, jid, game);
   return true;
@@ -150,6 +157,7 @@ export async function addGuessParticipant(sock, m, target) {
   if (!game) return false;
   if (sender !== game.owner) { await sock.sendMessage(jid, { text: 'صاحب اللعبة فقط يقدر يضيف مشاركين.' }); return true; }
   if (!target) { await sock.sendMessage(jid, { text: 'اعمل منشن للعضو أو رد على رسالته بالأمر .مشارك' }); return true; }
+  if (game.eliminated.has(target)) { await sock.sendMessage(jid, { text: '⛔ هذا العضو خرج من اللعبة ولا يمكنه العودة.' }); return true; }
   if (!game.participants.has(target)) { game.participants.add(target); game.hearts[target] = HEARTS; }
   await sock.sendMessage(jid, { text: `✅ @${target.split('@')[0]} بقى مشارك في اللعبة. ❤️❤️❤️`, mentions: [target] });
   return true;
