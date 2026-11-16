@@ -40,7 +40,7 @@ async function finish(sock, jid, game, winner) {
 }
 async function nextRound(sock, jid, game) {
   if (games.get(jid) !== game) return;
-  if (game.round > 0 && game.participants.size <= 1) {
+  if (game.round > 0 && game.everHadOpponent && game.participants.size <= 1) {
     const winner = [...game.participants][0];
     if (winner) return finish(sock, jid, game, winner);
     clearTimeout(game.timer); games.delete(jid);
@@ -81,7 +81,7 @@ export async function startGuess(sock, m) {
   if (!jid.endsWith('@g.us')) { await sock.sendMessage(jid, { text: '🎯 لعبة خمن متاحة في المجموعات فقط.' }); return true; }
   if (games.has(jid)) { await sock.sendMessage(jid, { text: '🎯 توجد لعبة خمن جارية بالفعل. اكتب تم للمشاركة.' }); return true; }
   const owner = m.key.participant || jid;
-  const game = { owner, participants: new Set([owner]), eliminated: new Set(), hearts: { [owner]: HEARTS }, used: new Set(), round: 0, answer: new Set(), timer: null };
+  const game = { owner, participants: new Set([owner]), eliminated: new Set(), everHadOpponent: false, hearts: { [owner]: HEARTS }, used: new Set(), round: 0, answer: new Set(), timer: null };
   games.set(jid, game);
   await nextRound(sock, jid, game);
   return true;
@@ -97,6 +97,7 @@ export async function guessMessage(sock, m, text) {
         return true;
       }
       game.participants.add(who);
+      game.everHadOpponent = true;
       game.hearts[who] = HEARTS;
       await sock.sendMessage(jid, { text: `✅ @${who.split('@')[0]} انضم للعبة! ❤️❤️❤️`, mentions: [who] });
     }
@@ -109,7 +110,7 @@ export async function guessMessage(sock, m, text) {
         await sock.sendMessage(jid, { text: '⛔ هذا العضو خرج من اللعبة ولا يمكنه العودة.' });
         return true;
       }
-      game.participants.add(target); game.hearts[target] = HEARTS;
+      game.participants.add(target); game.everHadOpponent = true; game.hearts[target] = HEARTS;
       await sock.sendMessage(jid, { text: `✅ تمت إضافة @${target.split('@')[0]} للمشاركين. ❤️❤️❤️`, mentions: [target] });
       return true;
     }
@@ -157,7 +158,7 @@ export async function addGuessParticipant(sock, m, target) {
   if (sender !== game.owner) { await sock.sendMessage(jid, { text: 'صاحب اللعبة فقط يقدر يضيف مشاركين.' }); return true; }
   if (!target) { await sock.sendMessage(jid, { text: 'اعمل منشن للعضو أو رد على رسالته بالأمر .مشارك' }); return true; }
   if (game.eliminated.has(target)) { await sock.sendMessage(jid, { text: '⛔ هذا العضو خرج من اللعبة ولا يمكنه العودة.' }); return true; }
-  if (!game.participants.has(target)) { game.participants.add(target); game.hearts[target] = HEARTS; }
+  if (!game.participants.has(target)) { game.participants.add(target); game.everHadOpponent = true; game.hearts[target] = HEARTS; }
   await sock.sendMessage(jid, { text: `✅ @${target.split('@')[0]} بقى مشارك في اللعبة. ❤️❤️❤️`, mentions: [target] });
   return true;
 }
