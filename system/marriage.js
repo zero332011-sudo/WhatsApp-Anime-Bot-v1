@@ -1,4 +1,3 @@
-import { getDB, saveDB } from '../database/db.js';
 export async function marriageCommand(sock, m, cmd) {
   const jid = m.key.remoteJid;
   if (!jid.endsWith('@g.us')) { await sock.sendMessage(jid, { text: '💍 الأمر متاح في المجموعات فقط.' }); return true; }
@@ -11,12 +10,9 @@ export async function marriageCommand(sock, m, cmd) {
   let second = Math.floor(Math.random() * (members.length - 1));
   if (second >= first) second++;
   const couple = [members[first], members[second]];
-  const db = getDB();
   if (cmd === 'زواج') {
-    db.marriages[jid] = couple; saveDB(db);
     await sock.sendMessage(jid, { text: `╭━━━〔 💍 زواج عشوائي 〕━━━╮\n┃ 🎉 تم اختيار عروسين جديدين!\n┃ 👰 @${couple[0].split('@')[0]}\n┃ 🤵 @${couple[1].split('@')[0]}\n┃ ❤️ ألف مبروك!\n╰━━━━━━━━━━━━━━━━━━━━╯`, mentions: couple });
   } else {
-    delete db.marriages[jid]; saveDB(db);
     await sock.sendMessage(jid, { text: `╭━━━〔 💔 طلاق عشوائي 〕━━━╮\n┃ 😂 حدثت كارثة زوجية!\n┃ 💔 @${couple[0].split('@')[0]}\n┃ 💔 @${couple[1].split('@')[0]}\n┃ 🥀 تم الطلاق!\n╰━━━━━━━━━━━━━━━━━━━━╯`, mentions: couple });
   }
   return true;
