@@ -7,20 +7,28 @@ const games = new Map();
 const ROUND_MS = 30_000;
 const HEARTS = 3;
 
+function loadAliases() {
+  const aliasesFile = path.resolve('./anime/guessAliases.json');
+  try {
+    const aliases = JSON.parse(fs.readFileSync(aliasesFile, 'utf8'));
+    return aliases && typeof aliases === 'object' && !Array.isArray(aliases) ? aliases : {};
+  } catch {
+    return {};
+  }
+}
 function listImages(folder = imageRoot) {
   if (!fs.existsSync(folder)) return [];
+  const aliases = loadAliases();
   return fs.readdirSync(folder, { withFileTypes: true }).flatMap(entry => {
     const full = path.join(folder, entry.name);
     if (entry.isDirectory()) return listImages(full);
-    return /\.(png|jpe?g|webp)$/i.test(entry.name) ? [full] : [];
+    const name = path.parse(entry.name).name;
+    return /\.(png|jpe?g|webp)$/i.test(entry.name) && Object.hasOwn(aliases, name) ? [full] : [];
   });
 }
 function answerAliases(file) {
   const name = path.parse(file).name;
-  const aliasesFile = path.resolve('./anime/guessAliases.json');
-  let aliases = {};
-  try { aliases = JSON.parse(fs.readFileSync(aliasesFile, 'utf8')); } catch {}
-  const direct = aliases[name] || [];
+  const direct = loadAliases()[name] || [];
   return new Set([normalizeAnswer(name), ...direct.map(normalizeAnswer)].filter(Boolean));
 }
 function heartsLine(game) {
@@ -58,7 +66,7 @@ async function nextRound(sock, jid, game) {
   const file = choices[Math.floor(Math.random() * choices.length)];
   game.used.add(file);
   game.answer = answerAliases(file);
-  game.answerName = path.parse(file).name;
+  game.answerName = loadAliases()[path.parse(file).name]?.[0] || path.parse(file).name;
   game.round++;
   await sock.sendMessage(jid, {
     image: fs.readFileSync(file),
