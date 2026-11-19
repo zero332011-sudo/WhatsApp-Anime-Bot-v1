@@ -5,12 +5,14 @@ import 'dotenv/config';
 import { messageHandler } from './handlers/messageHandler.js';
 import { config } from './config/settings.js';
 import { startPrayerSystem } from './system/prayer.js';
+import { startCommunityAwards } from './system/communityAwards.js';
 
 const PAIRING_DELAY_MS = 5_000;
 const RECONNECT_DELAY_MS = 30_000;
 
 let starting = false;
 let prayerStarted = false;
+let stopCommunityAwards = null;
 
 async function startBot() {
   if (starting) return;
@@ -50,8 +52,6 @@ async function startBot() {
     sock.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
       console.log('حالة اتصال واتساب:', connection || (qr ? 'QR/جاهز لطلب الرمز' : 'تحديث'));
 
-      // The socket must first reach the connecting/QR stage. A long 30-second
-      // pause here can let WhatsApp close the socket before the request is sent.
       if ((connection === 'connecting' || qr) && !state.creds.registered && !pairingCodeRequested) {
         pairingCodeRequested = true;
         try {
@@ -79,8 +79,6 @@ async function startBot() {
             statusCode: error?.output?.statusCode,
             stack: error?.stack
           });
-          // Do not crash the process here. The close event below decides
-          // whether to reconnect or whether WhatsApp explicitly logged out.
         }
       }
 
@@ -91,12 +89,19 @@ async function startBot() {
           prayerStarted = true;
           startPrayerSystem(sock);
         }
+        if (!stopCommunityAwards) {
+          stopCommunityAwards = startCommunityAwards(sock);
+        }
       }
 
       if (connection === 'close') {
         socketClosed = true;
         starting = false;
         prayerStarted = false;
+        if (stopCommunityAwards) {
+          stopCommunityAwards();
+          stopCommunityAwards = null;
+        }
         const statusCode = lastDisconnect?.error?.output?.statusCode;
         const closeMessage = lastDisconnect?.error?.message;
 
