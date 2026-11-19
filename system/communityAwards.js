@@ -81,7 +81,11 @@ async function sendDailyAwards(sock, groups, day) {
       '🎁 الجائزة المعلنة: 100 جنيه',
       '📌 يتولى المطور ترتيب تسليم الجائزة.'
     ].join('\n');
-    await sock.sendMessage(group.id, { text, mentions: [winner] });
+    try {
+      await sock.sendMessage(group.id, { text, mentions: [winner] });
+    } catch (error) {
+      console.error(`تعذر إرسال نتيجة اليوم إلى ${group.id}:`, error?.message || error);
+    }
   }
 }
 
@@ -160,6 +164,10 @@ export function startCommunityAwards(sock) {
     running = true;
     try {
       const groups = await participatingCommunityGroups(sock);
+      if (!groups.length) {
+        console.warn('لم يتم العثور على مجموعات مرتبطة بمجتمع؛ سيتم إعادة المحاولة في الموعد التالي.');
+        return;
+      }
       if (dailyDue) {
         await sendDailyAwards(sock, groups, today);
         db.communityAwards.lastDailyRun = today;
