@@ -5,7 +5,7 @@ const dataRoot = process.env.DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH |
 const dir = path.join(dataRoot, 'database');
 const file = path.join(dir, 'data.json');
 const defaults = () => ({
-  users: {}, groups: {}, developers: [], ownerJids: [], botName: '', messageStats: {}, muted: {}, blockedWords: [],
+  users: {}, groups: {}, developers: [], ownerJids: [], botName: '', messageStats: {}, communityAwards: { lastDailyRun: '', lastWeeklyRun: '' }, muted: {}, blockedWords: [],
   blockedEmojis: [], blockedStickers: [], anime: {}, games: {},
   marriages: {}, transfers: []
 });
@@ -26,6 +26,7 @@ function normalize(data = {}) {
     ownerJids: data.ownerJids || [],
     botName: data.botName || '',
     messageStats: data.messageStats || {},
+    communityAwards: { ...base.communityAwards, ...(data.communityAwards || {}) },
     muted: data.muted || {},
     anime: data.anime || {},
     games: data.games || {},
