@@ -102,25 +102,36 @@ async function sendWeeklyCommunityReports(sock, groups, week) {
 
     const winner = totals.find(x => x.bucket.total > 0);
     const winnerName = winner?.group.subject || winner?.group.id || 'لا يوجد فائز';
+    const communityRanking = [
+      '📈 ترتيب مجموعات المجتمع:',
+      ...totals.map((entry, index) =>
+        `${index + 1}. ${entry.group.subject || entry.group.id} — ${entry.bucket.total || 0} رسالة`
+      )
+    ];
     for (const item of totals) {
       const groupName = item.group.subject || item.group.id;
       const extra = [
         `🏘️ المجتمع: ${communityJid}`,
-        `📊 إجمالي رسائل المجموعة هذا الأسبوع: ${item.bucket.total || 0}`,
+        ...communityRanking,
+        `📊 إجمالي رسائل هذه المجموعة: ${item.bucket.total || 0}`,
         winner
           ? `🏆 المجموعة الفائزة: ${winnerName} — ${winner.bucket.total} رسالة`
           : 'لم يتم تسجيل نشاط كافٍ لتحديد مجموعة فائزة.',
         winner
-          ? '💰 جائزة المجتمع: 10,000 جنيه للمجموعة الفائزة، والمطور يتولى توزيعها.'
+          ? '💰 جائزة المجتمع: 10,000 جنيه للمجموعة الفائزة، والمطور يتولى توزيعها بين أعضائها.'
           : ''
       ].filter(Boolean);
-      await sendMemberList(
-        sock,
-        item.group.id,
-        `📅 التقرير الأسبوعي — ${groupName}`,
-        sortMembers(item.bucket),
-        extra
-      );
+      try {
+        await sendMemberList(
+          sock,
+          item.group.id,
+          `📅 التقرير الأسبوعي — ${groupName}`,
+          sortMembers(item.bucket),
+          extra
+        );
+      } catch (error) {
+        console.error(`تعذر إرسال التقرير إلى ${item.group.id}:`, error?.message || error);
+      }
     }
   }
 }
