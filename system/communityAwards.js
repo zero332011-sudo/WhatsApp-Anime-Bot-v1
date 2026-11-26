@@ -58,7 +58,7 @@ async function participatingCommunityGroups(sock) {
 async function sendDailyAwards(sock, groups, day, state) {
   let complete = true;
   for (const group of groups) {
-    if (state.dailySent[group.id]) continue;
+    if (state.dailySent[group.id] === day) continue;
     const ranking = sortMembers(getDB().messageStats?.[group.id]?.daily?.[day]);
     if (!ranking.length) {
       state.dailySent[group.id] = day;
