@@ -16,5 +16,10 @@
     "@whiskeysockets/baileys": "^6.7.18",
     "dotenv": "^16.4.7",
     "pino": "^9.6.0"
+  },
+  "overrides": {
+    "@whiskeysockets/baileys": {
+      "libsignal": "npm:@whiskeysockets/libsignal-node@^2.0.1"
+    }
   }
 }
