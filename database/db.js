@@ -5,9 +5,9 @@ const dataRoot = process.env.DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH |
 const dir = path.join(dataRoot, 'database');
 const file = path.join(dir, 'data.json');
 const defaults = () => ({
-  users: {}, groups: {}, developers: [], ownerJids: [], botName: '', messageStats: {}, communityAwards: { lastDailyRun: '', lastWeeklyRun: '' }, muted: {}, blockedWords: [],
-  blockedEmojis: [], blockedStickers: [], anime: {}, games: {},
-  marriages: {}, transfers: []
+  users: {}, groups: {}, developers: [], ownerJids: [], botName: '', messageStats: {},
+  communityAwards: { lastDailyRun: '', lastWeeklyRun: '' }, muted: {}, blockedWords: [],
+  blockedEmojis: [], blockedStickers: [], anime: {}, games: {}, marriages: {}, transfers: []
 });
 
 fs.mkdirSync(dir, { recursive: true });
@@ -18,22 +18,14 @@ let cache = null;
 function normalize(data = {}) {
   const base = defaults();
   return {
-    ...base,
-    ...data,
-    users: data.users || {},
-    groups: data.groups || {},
-    developers: data.developers || [],
-    ownerJids: data.ownerJids || [],
-    botName: data.botName || '',
-    messageStats: data.messageStats || {},
+    ...base, ...data,
+    users: data.users || {}, groups: data.groups || {},
+    developers: data.developers || [], ownerJids: data.ownerJids || [],
+    botName: data.botName || '', messageStats: data.messageStats || {},
     communityAwards: { ...base.communityAwards, ...(data.communityAwards || {}) },
-    muted: data.muted || {},
-    anime: data.anime || {},
-    games: data.games || {},
-    blockedWords: data.blockedWords || [],
-    blockedEmojis: data.blockedEmojis || [],
-    blockedStickers: data.blockedStickers || [],
-    marriages: data.marriages || {},
+    muted: data.muted || {}, anime: data.anime || {}, games: data.games || {},
+    blockedWords: data.blockedWords || [], blockedEmojis: data.blockedEmojis || [],
+    blockedStickers: data.blockedStickers || [], marriages: data.marriages || {},
     transfers: data.transfers || []
   };
 }
@@ -63,11 +55,12 @@ function numberOf(jid) {
 export function getUser(jid) {
   const db = getDB();
   if (!db.users[jid]) {
-    let ownerNumber = String(process.env.OWNER_NUMBER || '201032219184').replace(/\D/g, '');
-    if (ownerNumber.startsWith('0020')) ownerNumber = ownerNumber.slice(2);
-    else if (ownerNumber.startsWith('0')) ownerNumber = '20' + ownerNumber.slice(1);
-    else if (!ownerNumber.startsWith('20')) ownerNumber = '20' + ownerNumber;
-    const owner = numberOf(jid) === ownerNumber;
+    const ownerNumber = String(process.env.OWNER_NUMBER || '').replace(/\D/g, '');
+    let normalizedOwner = ownerNumber;
+    if (normalizedOwner.startsWith('0020')) normalizedOwner = normalizedOwner.slice(2);
+    else if (normalizedOwner.startsWith('0')) normalizedOwner = '20' + normalizedOwner.slice(1);
+    else if (normalizedOwner && !normalizedOwner.startsWith('20')) normalizedOwner = '20' + normalizedOwner;
+    const owner = !!normalizedOwner && numberOf(jid) === normalizedOwner;
     const developer = owner || db.developers.some(x => numberOf(x) === numberOf(jid));
     db.users[jid] = {
       jid, nickname: 'عضو جديد', rank: 17,

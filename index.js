@@ -8,6 +8,8 @@ import { startPrayerSystem } from './system/prayer.js';
 import { startCommunityAwards } from './system/communityAwards.js';
 
 const PAIRING_DELAY_MS = 5_000;
+const PAIRING_RETRY_DELAY_MS = 10_000;
+const MAX_PAIRING_ATTEMPTS = 3;
 const RECONNECT_DELAY_MS = 30_000;
 
 let starting = false;
@@ -21,13 +23,12 @@ async function startBot() {
   try {
     const phoneNumber = String(config.pairingNumber || '').replace(/\D/g, '');
     if (!phoneNumber || phoneNumber.length < 10) {
-      throw new Error('رقم الربط غير صحيح. تأكد من PAIRING_NUMBER مع كود الدولة، أرقام فقط.');
+      throw new Error('رقم الربط غير مضبوط. أضف PAIRING_NUMBER في متغيرات الاستضافة بصيغة دولية وأرقام فقط.');
     }
 
     const dataRoot = process.env.DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH || '.';
     const authDir = path.join(dataRoot, 'auth_info_baileys');
     const { state, saveCreds } = await useMultiFileAuthState(authDir);
-
     const sock = makeWASocket({
       auth: state,
       logger: pino({ level: 'warn' }),
@@ -39,47 +40,55 @@ async function startBot() {
     });
 
     let pairingCodeRequested = false;
+    let pairingInProgress = false;
+    let pairingAttempts = 0;
     let socketClosed = false;
 
-    sock.ev.on('creds.update', saveCreds);
+    const requestPairingCode = async () => {
+      if (socketClosed || state.creds.registered || pairingCodeRequested || pairingInProgress) return;
+      if (pairingAttempts >= MAX_PAIRING_ATTEMPTS) {
+        console.error('❌ لم ينجح طلب رمز الربط بعد عدة محاولات. أعد تشغيل الخدمة بعد التأكد من الرقم والاتصال.');
+        return;
+      }
+      pairingInProgress = true;
+      pairingAttempts++;
+      try {
+        console.log(`📲 محاولة طلب رمز الربط ${pairingAttempts}/${MAX_PAIRING_ATTEMPTS}...`);
+        console.log('📞 رقم واتساب: +' + phoneNumber);
+        await new Promise(resolve => setTimeout(resolve, PAIRING_DELAY_MS));
+        if (socketClosed || state.creds.registered) return;
+        const pairingCode = await sock.requestPairingCode(phoneNumber);
+        pairingCodeRequested = true;
+        console.log('\n========================================');
+        console.log('🔐 رمز ربط واتساب: ' + pairingCode);
+        console.log('افتح واتساب > الأجهزة المرتبطة > ربط جهاز > الربط باستخدام رقم الهاتف.');
+        console.log('أدخل الرمز الظاهر هنا كما هو.');
+        console.log('⚠️ الرمز مؤقت وسري، ولا تشاركه مع أي شخص.');
+        console.log('========================================\n');
+      } catch (error) {
+        console.error('❌ فشل طلب رمز الربط:', {
+          message: error?.message,
+          statusCode: error?.output?.statusCode
+        });
+        if (!socketClosed && !state.creds.registered && pairingAttempts < MAX_PAIRING_ATTEMPTS) {
+          setTimeout(() => requestPairingCode().catch(err => console.error('Pairing retry:', err?.message || err)), PAIRING_RETRY_DELAY_MS);
+        }
+      } finally {
+        pairingInProgress = false;
+      }
+    };
 
+    sock.ev.on('creds.update', saveCreds);
     sock.ev.on('messages.upsert', update => {
       messageHandler(sock, update).catch(error => {
         console.error('خطأ في معالجة الرسالة:', error?.stack || error);
       });
     });
 
-    sock.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
+    sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
       console.log('حالة اتصال واتساب:', connection || (qr ? 'QR/جاهز لطلب الرمز' : 'تحديث'));
-
-      if ((connection === 'connecting' || qr) && !state.creds.registered && !pairingCodeRequested) {
-        pairingCodeRequested = true;
-        try {
-          console.log('📲 الاتصال بدأ. انتظار 5 ثوانٍ ثم طلب رمز الربط...');
-          console.log('📞 رقم واتساب: +' + phoneNumber);
-          await new Promise(resolve => setTimeout(resolve, PAIRING_DELAY_MS));
-
-          if (socketClosed) {
-            console.error('❌ اتصال واتساب اتقفل قبل طلب الرمز. ستتم إعادة المحاولة.');
-            return;
-          }
-
-          const pairingCode = await sock.requestPairingCode(phoneNumber);
-
-          console.log('\n========================================');
-          console.log('🔐 رمز ربط واتساب: ' + pairingCode);
-          console.log('افتح واتساب على الهاتف الذي يحمل الرقم أعلاه:');
-          console.log('الأجهزة المرتبطة > ربط جهاز > الربط باستخدام رقم الهاتف');
-          console.log('ثم أدخل الرمز الظاهر هنا كما هو.');
-          console.log('⚠️ الرمز مؤقت وسري، ولا تشاركه مع أي شخص.');
-          console.log('========================================\n');
-        } catch (error) {
-          console.error('❌ فشل طلب رمز الربط:', {
-            message: error?.message,
-            statusCode: error?.output?.statusCode,
-            stack: error?.stack
-          });
-        }
+      if ((connection === 'connecting' || qr) && !state.creds.registered) {
+        requestPairingCode().catch(error => console.error('Pairing code:', error?.message || error));
       }
 
       if (connection === 'open') {
@@ -89,9 +98,7 @@ async function startBot() {
           prayerStarted = true;
           startPrayerSystem(sock);
         }
-        if (!stopCommunityAwards) {
-          stopCommunityAwards = startCommunityAwards(sock);
-        }
+        if (!stopCommunityAwards) stopCommunityAwards = startCommunityAwards(sock);
       }
 
       if (connection === 'close') {
@@ -103,13 +110,10 @@ async function startBot() {
           stopCommunityAwards = null;
         }
         const statusCode = lastDisconnect?.error?.output?.statusCode;
-        const closeMessage = lastDisconnect?.error?.message;
-
         console.error('⚠️ اتصال واتساب اتقفل:', {
           statusCode,
-          message: closeMessage || 'لا توجد تفاصيل إضافية'
+          message: lastDisconnect?.error?.message || 'لا توجد تفاصيل إضافية'
         });
-
         if (statusCode !== DisconnectReason.loggedOut) {
           console.log('🔁 ستتم محاولة الاتصال من جديد بعد 30 ثانية...');
           setTimeout(() => {
@@ -119,16 +123,14 @@ async function startBot() {
             });
           }, RECONNECT_DELAY_MS);
         } else {
-          console.error('❌ واتساب أعاد حالة تسجيل الخروج (401). لا تحذف ملفات الجلسة قبل التأكد من الرقم؛ راجع الرقم أو امسح جلسة الربط القديمة فقط إذا كنت متأكدًا أنها تالفة.');
+          console.error('❌ تم تسجيل الخروج من واتساب. لا تحذف ملفات الجلسة إلا إذا تأكدت أنها تالفة؛ أعد ربط الجهاز من جديد عند الحاجة.');
         }
       }
     });
 
-    if (state.creds.registered) {
-      console.log('🔄 جلسة واتساب محفوظة؛ جاري الاتصال...');
-    } else {
-      console.log('⏳ جاري الاتصال بواتساب لطلب رمز الربط...');
-    }
+    console.log(state.creds.registered
+      ? '🔄 جلسة واتساب محفوظة؛ جاري الاتصال...'
+      : '⏳ جاري الاتصال بواتساب لطلب رمز الربط...');
   } catch (error) {
     starting = false;
     console.error('❌ تعذر تشغيل البوت:', error?.stack || error);
