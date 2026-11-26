@@ -48,6 +48,7 @@ async function finish(sock, jid, game, winner) {
 }
 async function nextRound(sock, jid, game) {
   if (games.get(jid) !== game) return;
+  game.resolving = false;
   if (game.round > 0 && game.everHadOpponent && game.participants.size <= 1) {
     const winner = [...game.participants][0];
     if (winner) return finish(sock, jid, game, winner);
@@ -89,7 +90,7 @@ export async function startGuess(sock, m) {
   if (!jid.endsWith('@g.us')) { await sock.sendMessage(jid, { text: '🎯 لعبة خمن متاحة في المجموعات فقط.' }); return true; }
   if (games.has(jid)) { await sock.sendMessage(jid, { text: '🎯 توجد لعبة خمن جارية بالفعل. اكتب تم للمشاركة.' }); return true; }
   const owner = m.key.participant || jid;
-  const game = { owner, participants: new Set([owner]), eliminated: new Set(), everHadOpponent: false, hearts: { [owner]: HEARTS }, used: new Set(), round: 0, answer: new Set(), timer: null };
+  const game = { owner, participants: new Set([owner]), eliminated: new Set(), everHadOpponent: false, hearts: { [owner]: HEARTS }, used: new Set(), round: 0, answer: new Set(), timer: null, resolving: false };
   games.set(jid, game);
   await nextRound(sock, jid, game);
   return true;
@@ -98,6 +99,7 @@ export async function startGuess(sock, m) {
 export async function guessMessage(sock, m, text) {
   const jid = m.key.remoteJid, game = games.get(jid), who = m.key.participant || jid;
   if (!game || !text || text.startsWith('.')) return false;
+  if (game.resolving) return true;
   if (text.trim() === 'تم') {
     if (!game.participants.has(who)) {
       if (game.eliminated.has(who)) {
@@ -125,6 +127,7 @@ export async function guessMessage(sock, m, text) {
   }
   if (!game.participants.has(who)) return false;
   if (game.answer.has(normalizeAnswer(text))) {
+    game.resolving = true;
     clearTimeout(game.timer);
     const candidates = [...game.participants].filter(id => id !== who);
     const selected = candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : null;
