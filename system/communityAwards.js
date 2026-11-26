@@ -3,7 +3,7 @@ import { getDB, saveDB } from '../database/db.js';
 const TIME_ZONE = process.env.TIMEZONE || 'Africa/Cairo';
 const DAILY_HOUR = Number(process.env.AWARD_DAILY_HOUR ?? 23);
 const DAILY_MINUTE = Number(process.env.AWARD_DAILY_MINUTE ?? 59);
-const WEEKLY_DAY = Number(process.env.AWARD_WEEKLY_DAY ?? 5); // Friday
+const WEEKLY_DAY = Number(process.env.AWARD_WEEKLY_DAY ?? 5);
 const WEEKLY_HOUR = Number(process.env.AWARD_WEEKLY_HOUR ?? 23);
 const WEEKLY_MINUTE = Number(process.env.AWARD_WEEKLY_MINUTE ?? 59);
 const TICK_MS = 30_000;
@@ -15,25 +15,19 @@ function localParts(date = new Date()) {
   }).formatToParts(date);
   return Object.fromEntries(parts.filter(x => x.type !== 'literal').map(x => [x.type, x.value]));
 }
-
-function dateKey(p) {
-  return `${p.year}-${p.month}-${p.day}`;
-}
-
+function dateKey(p) { return `${p.year}-${p.month}-${p.day}`; }
 function weekKey(p) {
   const date = new Date(Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day)));
-  const daysSinceSaturday = (date.getUTCDay() + 1) % 7;
-  date.setUTCDate(date.getUTCDate() - daysSinceSaturday);
+  date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 1) % 7));
   return date.toISOString().slice(0, 10);
 }
-
+function weekdayNumber(day) {
+  return ({ Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 })[day] || 0;
+}
 function sortMembers(bucket) {
   return Object.entries(bucket?.members || {}).sort((a, b) => b[1] - a[1]);
 }
-
-function mentionLabel(jid) {
-  return '@' + String(jid).split('@')[0].split(':')[0];
-}
+function mentionLabel(jid) { return '@' + String(jid).split('@')[0].split(':')[0]; }
 
 async function sendMemberList(sock, groupJid, heading, rows, extraLines = []) {
   const pageSize = 18;
@@ -43,18 +37,13 @@ async function sendMemberList(sock, groupJid, heading, rows, extraLines = []) {
   for (let page = 0; page < pages.length; page++) {
     const current = pages[page];
     const lines = current.map(([jid, count], index) =>
-      `${page * pageSize + index + 1}. ${mentionLabel(jid)} — ${count} رسالة`
-    );
-    const text = [
-      heading,
-      ...extraLines,
+      `${page * pageSize + index + 1}. ${mentionLabel(jid)} — ${count} رسالة`);
+    const message = [
+      heading, ...extraLines,
       current.length ? lines.join('\n') : 'لا توجد رسائل مسجلة خلال الفترة.',
       pages.length > 1 ? `صفحة ${page + 1} من ${pages.length}` : ''
     ].filter(Boolean).join('\n');
-    await sock.sendMessage(groupJid, {
-      text,
-      mentions: current.map(([jid]) => jid)
-    });
+    await sock.sendMessage(groupJid, { text: message, mentions: current.map(([jid]) => jid) });
   }
 }
 
@@ -66,116 +55,113 @@ async function participatingCommunityGroups(sock) {
     (communityIds.size === 0 || communityIds.has(g.linkedParent)));
 }
 
-async function sendDailyAwards(sock, groups, day) {
-  const db = getDB();
+async function sendDailyAwards(sock, groups, day, state) {
+  let complete = true;
   for (const group of groups) {
-    const bucket = db.messageStats?.[group.id]?.daily?.[day];
-    const ranking = sortMembers(bucket);
-    if (!ranking.length) continue;
+    if (state.dailySent[group.id]) continue;
+    const ranking = sortMembers(getDB().messageStats?.[group.id]?.daily?.[day]);
+    if (!ranking.length) {
+      state.dailySent[group.id] = day;
+      saveDB(getDB());
+      continue;
+    }
     const [winner, count] = ranking[0];
-    const text = [
-      '🏅 نتيجة نشاط اليوم',
-      `👥 المجموعة: ${group.subject || group.id}`,
-      `🥇 الفائز: ${mentionLabel(winner)}`,
-      `💬 عدد رسائله: ${count}`,
-      '🎁 الجائزة المعلنة: 100 جنيه',
-      '📌 يتولى المطور ترتيب تسليم الجائزة.'
-    ].join('\n');
     try {
-      await sock.sendMessage(group.id, { text, mentions: [winner] });
+      await sock.sendMessage(group.id, {
+        text: [
+          '🏅 نتيجة نشاط اليوم',
+          `👥 المجموعة: ${group.subject || group.id}`,
+          `🥇 الفائز: ${mentionLabel(winner)}`,
+          `💬 عدد رسائله: ${count}`,
+          '🎁 الجائزة المعلنة: 100 جنيه',
+          '📌 يتولى المطور ترتيب تسليم الجائزة.'
+        ].join('\n'),
+        mentions: [winner]
+      });
+      state.dailySent[group.id] = day;
+      saveDB(getDB());
     } catch (error) {
+      complete = false;
       console.error(`تعذر إرسال نتيجة اليوم إلى ${group.id}:`, error?.message || error);
     }
   }
+  return complete;
 }
 
-async function sendWeeklyCommunityReports(sock, groups, week) {
+async function sendWeeklyCommunityReports(sock, groups, week, state) {
+  let complete = true;
   const byCommunity = new Map();
   for (const group of groups) {
-    const parent = group.linkedParent;
-    if (!byCommunity.has(parent)) byCommunity.set(parent, []);
-    byCommunity.get(parent).push(group);
+    if (!byCommunity.has(group.linkedParent)) byCommunity.set(group.linkedParent, []);
+    byCommunity.get(group.linkedParent).push(group);
   }
-
-  const db = getDB();
   for (const [communityJid, communityGroups] of byCommunity) {
     const totals = communityGroups.map(group => ({
       group,
-      bucket: db.messageStats?.[group.id]?.weekly?.[week] || { total: 0, members: {} }
+      bucket: getDB().messageStats?.[group.id]?.weekly?.[week] || { total: 0, members: {} }
     })).sort((a, b) => (b.bucket.total || 0) - (a.bucket.total || 0));
-
     const winner = totals.find(x => x.bucket.total > 0);
     const winnerName = winner?.group.subject || winner?.group.id || 'لا يوجد فائز';
-    const communityRanking = [
+    const ranking = [
       '📈 ترتيب مجموعات المجتمع:',
       ...totals.map((entry, index) =>
-        `${index + 1}. ${entry.group.subject || entry.group.id} — ${entry.bucket.total || 0} رسالة`
-      )
+        `${index + 1}. ${entry.group.subject || entry.group.id} — ${entry.bucket.total || 0} رسالة`)
     ];
     for (const item of totals) {
-      const groupName = item.group.subject || item.group.id;
+      if (state.weeklySent[week]?.[item.group.id]) continue;
       const extra = [
         `🏘️ المجتمع: ${communityJid}`,
-        ...communityRanking,
+        ...ranking,
         `📊 إجمالي رسائل هذه المجموعة: ${item.bucket.total || 0}`,
-        winner
-          ? `🏆 المجموعة الفائزة: ${winnerName} — ${winner.bucket.total} رسالة`
+        winner ? `🏆 المجموعة الفائزة: ${winnerName} — ${winner.bucket.total} رسالة`
           : 'لم يتم تسجيل نشاط كافٍ لتحديد مجموعة فائزة.',
-        winner
-          ? '💰 جائزة المجتمع: 10,000 جنيه للمجموعة الفائزة، والمطور يتولى توزيعها بين أعضائها.'
-          : ''
+        winner ? '💰 جائزة المجتمع: 10,000 جنيه للمجموعة الفائزة، والمطور يتولى توزيعها بين أعضائها.' : ''
       ].filter(Boolean);
       try {
-        await sendMemberList(
-          sock,
-          item.group.id,
-          `📅 التقرير الأسبوعي — ${groupName}`,
-          sortMembers(item.bucket),
-          extra
-        );
+        await sendMemberList(sock, item.group.id,
+          `📅 التقرير الأسبوعي — ${item.group.subject || item.group.id}`,
+          sortMembers(item.bucket), extra);
+        state.weeklySent[week] ||= {};
+        state.weeklySent[week][item.group.id] = true;
+        saveDB(getDB());
       } catch (error) {
+        complete = false;
         console.error(`تعذر إرسال التقرير إلى ${item.group.id}:`, error?.message || error);
       }
     }
   }
+  return complete;
 }
 
 export function startCommunityAwards(sock) {
   let running = false;
-
   const tick = async () => {
     if (running) return;
     const now = localParts();
     const today = dateKey(now);
     const thisWeek = weekKey(now);
+    const minuteOfDay = Number(now.hour) * 60 + Number(now.minute);
+    const dailyTarget = DAILY_HOUR * 60 + DAILY_MINUTE;
+    const weeklyTarget = WEEKLY_HOUR * 60 + WEEKLY_MINUTE;
     const db = getDB();
-    db.communityAwards ||= { lastDailyRun: '', lastWeeklyRun: '' };
-
-    const dailyDue = Number(now.hour) === DAILY_HOUR &&
-      Number(now.minute) >= DAILY_MINUTE &&
-      db.communityAwards.lastDailyRun !== today;
-    const weeklyDue = Number(now.weekday === 'Fri' ? 5 :
-      ({ Mon: 1, Tue: 2, Wed: 3, Thu: 4, Sat: 6, Sun: 7 }[now.weekday] || 0)) === WEEKLY_DAY &&
-      Number(now.hour) === WEEKLY_HOUR &&
-      Number(now.minute) >= WEEKLY_MINUTE &&
-      db.communityAwards.lastWeeklyRun !== thisWeek;
-
+    db.communityAwards ||= {};
+    db.communityAwards.dailySent ||= {};
+    db.communityAwards.weeklySent ||= {};
+    const state = db.communityAwards;
+    const dailyDue = minuteOfDay >= dailyTarget && state.lastDailyRun !== today;
+    const weeklyDue = weekdayNumber(now.weekday) === WEEKLY_DAY &&
+      minuteOfDay >= weeklyTarget && state.lastWeeklyRun !== thisWeek;
     if (!dailyDue && !weeklyDue) return;
+
     running = true;
     try {
       const groups = await participatingCommunityGroups(sock);
       if (!groups.length) {
-        console.warn('لم يتم العثور على مجموعات مرتبطة بمجتمع؛ سيتم إعادة المحاولة في الموعد التالي.');
+        console.warn('لم يتم العثور على مجموعات مرتبطة بمجتمع؛ ستتم إعادة المحاولة لاحقًا.');
         return;
       }
-      if (dailyDue) {
-        await sendDailyAwards(sock, groups, today);
-        db.communityAwards.lastDailyRun = today;
-      }
-      if (weeklyDue) {
-        await sendWeeklyCommunityReports(sock, groups, thisWeek);
-        db.communityAwards.lastWeeklyRun = thisWeek;
-      }
+      if (dailyDue && await sendDailyAwards(sock, groups, today, state)) state.lastDailyRun = today;
+      if (weeklyDue && await sendWeeklyCommunityReports(sock, groups, thisWeek, state)) state.lastWeeklyRun = thisWeek;
       saveDB(db);
     } catch (error) {
       console.error('تعذر إرسال تقارير وجوائز المجتمع:', error?.stack || error);
@@ -183,12 +169,10 @@ export function startCommunityAwards(sock) {
       running = false;
     }
   };
-
   tick().catch(error => console.error('Community awards scheduler:', error));
-  const timer = setInterval(() => {
-    tick().catch(error => console.error('Community awards scheduler:', error));
-  }, TICK_MS);
+  const timer = setInterval(() => tick().catch(error =>
+    console.error('Community awards scheduler:', error)), TICK_MS);
   timer.unref?.();
-  console.log(`🏆 نظام جوائز المجتمع جاهز — يومي ${String(DAILY_HOUR).padStart(2, '0')}:${String(DAILY_MINUTE).padStart(2, '0')}، أسبوعي الجمعة ${String(WEEKLY_HOUR).padStart(2, '0')}:${String(WEEKLY_MINUTE).padStart(2, '0')} (${TIME_ZONE})`);
+  console.log(`🏆 نظام جوائز المجتمع جاهز — يومي ${String(DAILY_HOUR).padStart(2, '0')}:${String(DAILY_MINUTE).padStart(2, '0')}، أسبوعي ${WEEKLY_DAY} ${String(WEEKLY_HOUR).padStart(2, '0')}:${String(WEEKLY_MINUTE).padStart(2, '0')} (${TIME_ZONE})`);
   return () => clearInterval(timer);
 }
