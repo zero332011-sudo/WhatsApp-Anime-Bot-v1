@@ -3,9 +3,11 @@ import path from 'node:path';
 import {downloadMediaMessage} from '@whiskeysockets/baileys';
 import {getDB,saveDB} from '../database/db.js';
 import {isDeveloper} from '../utils/permissions.js';
+
 const mediaDir=path.resolve(process.env.MEDIA_DIR || path.join(process.env.DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH || '.', 'anime', 'media'));
 const safe=s=>String(s||'').replace(/[^\p{L}\p{N}_-]/gu,'_').slice(0,80);
 const parsePair=value=>String(value||'').split('|').map(x=>x.trim());
+
 export async function animeCommand(sock,m,text) {
   const jid=m.key.remoteJid,sender=m.key.participant||jid,parts=text.trim().split(/\s+/),cmd=parts[0],db=getDB();
   if(cmd==='.انمي') {
@@ -34,7 +36,7 @@ export async function animeCommand(sock,m,text) {
   if(!['.اضافه','.حذف'].includes(cmd)) return false;
   if(!isDeveloper(sender)){await sock.sendMessage(jid,{text:'⛔ إدارة مكتبة الأنمي للمطورين فقط.'});return true;}
   if(parts[1]==='انمي'&&cmd==='.اضافه') {
-    const name=parts.slice(2).join(' ').trim();if(!name)return true;
+    const name=parts.slice(2).join(' ').trim();if(!name){await sock.sendMessage(jid,{text:'اكتب اسم الأنمي.'});return true;}
     db.anime[name] ||= {sections:{}};saveDB(db);await sock.sendMessage(jid,{text:'✅ تمت إضافة الأنمي: '+name});return true;
   }
   if(parts[1]==='قسم'&&cmd==='.اضافه') {
@@ -44,18 +46,24 @@ export async function animeCommand(sock,m,text) {
     await sock.sendMessage(jid,{text:'✅ تمت إضافة قسم '+section+' داخل '+anime+'.'});return true;
   }
   if(parts[1]==='حلقه'&&cmd==='.اضافه') {
-    const [anime,section,episodeNo]=parsePair(parts.slice(2).join(' '));
+    const [anime,section,requestedNo]=parsePair(parts.slice(2).join(' '));
     const episodes=db.anime[anime]?.sections?.[section];
     const media=m.message?.videoMessage||m.message?.documentMessage;
-    if(!episodes||!episodeNo||!media){await sock.sendMessage(jid,{text:'أرسل الفيديو/الملف مع الأمر: .اضافه حلقه الأنمي|القسم|رقم الحلقة'});return true;}
+    const filename=String(media?.fileName||media?.title||'');
+    const detected=filename.match(/(?:episode|ep|حلقة|الحلقه|e)?\s*0*(\d{1,4})(?!.*\d)/i)?.[1];
+    const episodeNo=requestedNo||detected;
+    if(!episodes||!media||!episodeNo){
+      await sock.sendMessage(jid,{text:'أرفق الفيديو أو الملف واكتب .اضافه حلقه الأنمي|القسم|رقم الحلقة. يمكن ترك الرقم إذا كان اسم الملف يحتوي رقم الحلقة.'});
+      return true;
+    }
     try {
       fs.mkdirSync(mediaDir,{recursive:true});
       const buffer=await downloadMediaMessage(m,'buffer',{}, {logger:sock.logger||console});
       const ext=media.mimetype==='video/mp4'?'.mp4':(media.fileName?path.extname(media.fileName):'.bin')||'.bin';
       const file=path.join(mediaDir,safe(anime+'_'+section+'_'+episodeNo)+ext);
       fs.writeFileSync(file,buffer);
-      const old=episodes.findIndex(e=>String(typeof e==='string'?path.parse(e).name:e.number)===episodeNo);
-      const record={number:episodeNo,file};
+      const old=episodes.findIndex(e=>String(typeof e==='string'?path.parse(e).name:e.number)===String(episodeNo));
+      const record={number:String(episodeNo),file};
       if(old>=0)episodes[old]=record;else episodes.push(record);
       saveDB(db);
       await sock.sendMessage(jid,{text:'✅ تم حفظ الحلقة '+episodeNo+' في '+anime+' / '+section+'.'});
