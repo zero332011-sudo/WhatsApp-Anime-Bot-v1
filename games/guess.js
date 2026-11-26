@@ -1,20 +1,20 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { getTargetJid, normalizeAnswer } from '../utils/helpers.js';
+import { getDB, getUser, saveDB } from '../database/db.js';
 
 const imageRoot = path.resolve('./anime/images');
 const games = new Map();
 const ROUND_MS = 30_000;
 const HEARTS = 3;
+const WIN_REWARD = 20;
 
 function loadAliases() {
   const aliasesFile = path.resolve('./anime/guessAliases.json');
   try {
     const aliases = JSON.parse(fs.readFileSync(aliasesFile, 'utf8'));
     return aliases && typeof aliases === 'object' && !Array.isArray(aliases) ? aliases : {};
-  } catch {
-    return {};
-  }
+  } catch { return {}; }
 }
 function listImages(folder = imageRoot) {
   if (!fs.existsSync(folder)) return [];
@@ -58,7 +58,7 @@ async function nextRound(sock, jid, game) {
   const files = listImages();
   if (!files.length) {
     games.delete(jid);
-    await sock.sendMessage(jid, { text: '❌ لا توجد صور. أضف صور الشخصيات داخل مجلدات anime/images بأسماء عربية.' });
+    await sock.sendMessage(jid, { text: '❌ لا توجد صور مدعومة بأسماء موجودة في anime/guessAliases.json.' });
     return;
   }
   let choices = files.filter(file => !game.used.has(file));
@@ -135,8 +135,13 @@ export async function guessMessage(sock, m, text) {
         game.eliminated.add(selected);
       }
     }
+    const db = getDB();
+    const winnerUser = getUser(who);
+    winnerUser.bank = (Number(winnerUser.bank) || 0) + WIN_REWARD;
+    db.users[who] = winnerUser;
+    saveDB(db);
     await sock.sendMessage(jid, {
-      text: `🏆 إجابة صحيحة يا @${who.split('@')[0]}!\n🎯 الإجابة: ${game.answerName}\n${selected ? `🎯 تم اختيار @${selected.split('@')[0]} عشوائيًا ليخسر قلبًا واحدًا.` : 'لا يوجد مشارك آخر ليخسر قلبًا.'}\n\n❤️ القلوب:\n${heartsLine(game)}`,
+      text: `🏆 إجابة صحيحة يا @${who.split('@')[0]}!\n🎯 الإجابة: ${game.answerName}\n💰 حصلت على ${WIN_REWARD} جنيه في البنك.\n${selected ? `🎯 تم اختيار @${selected.split('@')[0]} عشوائيًا ليخسر قلبًا واحدًا.` : 'لا يوجد مشارك آخر ليخسر قلبًا.'}\n\n❤️ القلوب:\n${heartsLine(game)}`,
       mentions: [...new Set([...game.participants, ...(selected ? [selected] : [])])]
     });
     await nextRound(sock, jid, game);
