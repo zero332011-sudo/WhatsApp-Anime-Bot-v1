@@ -4,6 +4,14 @@ import { ranks, config } from '../config/settings.js';
 import { isDeveloper, isBotManager, isOwner } from '../utils/permissions.js';
 import { showMedia } from '../system/media.js';
 
+function cairoDateKey(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: config.timezone, year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(date);
+  const p = Object.fromEntries(parts.filter(x => x.type !== 'literal').map(x => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}`;
+}
+
 export async function generalCommand(sock, m, text) {
   const jid = m.key.remoteJid;
   const sender = m.key.participant || jid;
@@ -82,14 +90,15 @@ export async function generalCommand(sock, m, text) {
       return true;
     }
     const db = getDB();
-    const stats = db.messageStats?.[jid] || { total: 0, members: {} };
-    const top = Object.entries(stats.members || {}).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    const stats = db.messageStats?.[jid] || { total: 0, members: {}, daily: {} };
+    const today = stats.daily?.[cairoDateKey()] || { total: 0, members: {} };
+    const top = Object.entries(today.members || {}).sort((a, b) => b[1] - a[1]).slice(0, 3);
     const lines = top.length
       ? top.map(([id, count], index) => `${index + 1}. @${id.split('@')[0]} — ${count} رسالة`).join('\n')
-      : 'لا توجد بيانات نشاط بعد.';
+      : 'لا توجد بيانات نشاط اليوم بعد.';
     const date = new Date().toLocaleDateString('ar-EG', { timeZone: config.timezone });
     await sock.sendMessage(jid, {
-      text: `📊 إحصائيات المجموعة\n📅 التاريخ: ${date}\n💬 إجمالي الرسائل المسجلة منذ تشغيل البوت: ${stats.total}\n🏆 أكثر 3 أعضاء نشاطًا:\n${lines}`,
+      text: `📊 إحصائيات النشاط\n📅 التاريخ: ${date}\n💬 إجمالي رسائل المجموعة: ${stats.total || 0}\n📨 رسائل اليوم: ${today.total || 0}\n🏆 أكثر 3 أعضاء نشاطًا اليوم:\n${lines}`,
       mentions: top.map(([id]) => id)
     });
     return true;
